@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cecilia | Homepage</title>
+<link rel="icon" href="https://github.com/cecilia4412.png">
+<style>
+:root {
+  --text: #2b2d42;
+  --muted: #6c7086;
+  --accent: #7c83fd;
+  --accent2: #ff9ecb;
+  --accent3: #66c7f4;
+  --card: rgba(255, 255, 255, 0.72);
+  --border: rgba(124, 131, 253, 0.16);
+  --shadow: 0 12px 32px rgba(90, 96, 180, 0.10);
+  --radius: 20px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--text);
+  background: #f6f7fb;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.7;
+}
+
+/* 背景光斑 */
+.blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.45;
+  z-index: -1;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+.blob.b1 { width: 420px; height: 420px; background: #c7cbff; top: -120px; left: -100px; }
+.blob.b2 { width: 360px; height: 360px; background: #ffd3e8; top: 30%; right: -120px; animation-delay: -6s; }
+.blob.b3 { width: 300px; height: 300px; background: #c4ecff; bottom: -100px; left: 30%; animation-delay: -12s; }
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(40px, 30px) scale(1.08); }
+}
+
+/* 导航 */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(14px);
+  background: rgba(246, 247, 251, 0.75);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  background: linear-gradient(120deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-decoration: none;
+}
+.nav-links { display: flex; gap: 22px; align-items: center; }
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14.5px;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--accent); }
+.nav-gh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 13.5px;
+  color: var(--text) !important;
+}
+.nav-gh svg { width: 16px; height: 16px; fill: currentColor; }
+
+main { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* Hero */
+.hero {
+  padding: 84px 0 64px;
+  text-align: center;
+}
+.avatar-ring {
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 26px;
+  padding: 5px;
+  border-radius: 50%;
+  background: conic-gradient(from 120deg, var(--accent), var(--accent2), var(--accent3), var(--accent));
+  animation: spin 8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.avatar-ring img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  border: 4px solid #fff;
+  animation: spin 8s linear infinite reverse;
+}
+.hero h1 { font-size: 40px; letter-spacing: 1px; }
+.hero h1 .wave { color: var(--accent); }
+.typing-line {
+  margin-top: 10px;
+  font-size: 18px;
+  color: var(--muted);
+  min-height: 30px;
+}
+.typing-line .typed { color: var(--accent); font-weight: 600; }
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent2);
+  vertical-align: -0.15em;
+  margin-left: 2px;
+  animation: blink 0.9s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.hero p.bio {
+  max-width: 560px;
+  margin: 18px auto 0;
+  color: var(--muted);
+  font-size: 15.5px;
+}
+.socials {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.social-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  transition: transform 0.25s, box-shadow 0.25s, color 0.25s;
+}
+.social-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.social-btn:hover {
+  transform: translateY(-4px);
+  color: var(--accent);
+  box-shadow: 0 18px 36px rgba(90, 96, 180, 0.18);
+}
+
+/* 通用区块 */
+section { padding: 40px 0 20px; }
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+.section-title::before {
+  content: "";
+  width: 8px;
+  height: 24px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+}
+.section-sub { color: var(--muted); font-size: 14px; margin-bottom: 26px; }
+
+/* 项目卡片 */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.card {
+  position: relative;
+  display: block;
+  padding: 24px 24px 20px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.28s, box-shadow 0.28s, border-color 0.28s;
+  overflow: hidden;
+}
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(124,131,253,0.10), rgba(255,158,203,0.10));
+  opacity: 0;
+  transition: opacity 0.28s;
+  pointer-events: none;
+}
+.card:hover { transform: translateY(-6px); border-color: rgba(124,131,253,0.4); box-shadow: 0 20px 44px rgba(90,96,180,0.16); }
+.card:hover::after { opacity: 1; }
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.card-head h3 { font-size: 17.5px; color: var(--accent); }
+.card-head svg { width: 18px; height: 18px; fill: var(--muted); transition: fill 0.2s, transform 0.2s; }
+.card:hover .card-head svg { fill: var(--accent2); transform: translate(2px, -2px); }
+.card p { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+.tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.tag {
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(124, 131, 253, 0.10);
+  color: var(--accent);
+  border: 1px solid rgba(124, 131, 253, 0.18);
+}
+.tag.pink { background: rgba(255, 158, 203, 0.12); color: #e56aa8; border-color: rgba(255, 158, 203, 0.25); }
+.tag.blue { background: rgba(102, 199, 244, 0.12); color: #3a9bd6; border-color: rgba(102, 199, 244, 0.25); }
+
+/* 兴趣标签云 */
+.cloud { display: flex; flex-wrap: wrap; gap: 12px; }
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 15px;
+  font-weight: 600;
+  transition: transform 0.22s, color 0.22s;
+}
+.chip small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.chip:hover { transform: translateY(-4px) scale(1.03); color: var(--accent); }
+
+/* 页脚 */
+footer {
+  margin-top: 70px;
+  border-top: 1px solid var(--border);
+  padding: 30px 24px 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+footer .foot-links { display: flex; justify-content: center; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+footer a:hover { color: var(--accent); }
+
+/* 滚动淡入 */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: none; }
+
+@media (max-width: 720px) {
+  .cards { grid-template-columns: 1fr; }
+  .hero { padding: 60px 0 48px; }
+  .hero h1 { font-size: 32px; }
+  .nav-links a.hide-m { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+<div class="blob b3"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="#">cecilia</a>
+    <div class="nav-links">
+      <a href="#projects" class="hide-m">项目</a>
+      <a href="#interests" class="hide-m">兴趣</a>
+      <a class="nav-gh" href="https://github.com/cecilia4412" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <!-- Hero -->
+  <header class="hero">
+    <div class="avatar-ring">
+      <img src="https://github.com/cecilia4412.png" alt="cecilia 的头像">
+    </div>
+    <h1>你好，我是 <span class="wave">cecilia</span></h1>
+    <div class="typing-line">正在 <span class="typed" id="typed"></span><span class="caret"></span></div>
+    <p class="bio">喜欢语音技术与 LLM Agent 的开发者，热衷于从零复现模型、折腾服务部署，<br>正在把兴趣一点点变成可以运行的项目。</p>
+    <div class="socials">
+      <a class="social-btn" href="https://github.com/cecilia4412" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        GitHub
+      </a>
+      <a class="social-btn" href="https://space.bilibili.com/1920131239" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774L4.933 3.533a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c0-.373.129-.689.386-.947.258-.257.574-.386.947-.386zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.249-.249-.383-.569-.4-.96V12.44c.017-.391.133-.702.4-.96.249-.249.56-.373.933-.373z"/></svg>
+        Bilibili
+      </a>
+      <a class="social-btn" href="https://steamcommunity.com/profiles/76561198726425168/" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg>
+        Steam
+      </a>
+      <a class="social-btn" href="mailto:cecilia4412@qq.com">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        邮箱
+      </a>
+    </div>
+  </header>
+
+  <!-- 项目 -->
+  <section id="projects" class="reveal">
+    <h2 class="section-title">项目仓库</h2>
+    <p class="section-sub">从模型复现到服务部署的一些学习与实践记录</p>
+    <div class="cards">
+      <a class="card" href="https://github.com/cecilia4412/bert-from-scratch-zh" target="_blank" rel="noopener">
+        <div class="card-head">
+          <h3>bert-from-scratch-zh</h3>
+          <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg>
+        </div>
+        <p>从零复现 BERT：纯 PyTorch 实现，不依赖 transformers 库，完成「中文情感二分类」任务的全链路。</p>
+        <div class="tags">
+          <span class="tag">Python</span><span class="tag pink">PyTorch</span><span class="tag blue">NLP</span>
+        </div>
+      </a>
+      <a class="card" href="https://github.com/cecilia4412/asr-study" target="_blank" rel="noopener">
+        <div class="card-head">
+          <h3>asr-study</h3>
+          <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg>
+        </div>
+        <p>ASR 学习仓库：语音识别基线评估、数据采样策略与模型对比实验的完整记录。</p>
+        <div class="tags">
+          <span class="tag">Python</span><span class="tag pink">ASR</span><span class="tag blue">语音</span>
+        </div>
+      </a>
+      <a class="card" href="https://github.com/cecilia4412/deploy-notes" target="_blank" rel="noopener">
+        <div class="card-head">
+          <h3>deploy-notes</h3>
+          <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg>
+        </div>
+        <p>服务部署指南文档集：Docker、FRP 内网穿透、MinIO、HTTPS 证书与 AI 模型服务的生产级部署手册。</p>
+        <div class="tags">
+          <span class="tag">Docker</span><span class="tag pink">运维</span><span class="tag blue">文档</span>
+        </div>
+      </a>
+      <a class="card" href="https://github.com/cecilia4412/EchoBot" target="_blank" rel="noopener">
+        <div class="card-head">
+          <h3>EchoBot</h3>
+          <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg>
+        </div>
+        <p>Your Anime AI Companion：二次元 AI 伙伴，复刻自 KdaiP/EchoBot 并进行个性化改造。</p>
+        <div class="tags">
+          <span class="tag">Python</span><span class="tag pink">AI Companion</span><span class="tag blue">二次元</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 兴趣 -->
+  <section id="interests" class="reveal">
+    <h2 class="section-title">关注领域</h2>
+    <p class="section-sub">GitHub Star 清单里正在追踪的方向</p>
+    <div class="cloud">
+      <span class="chip">Agent<small>13 个收藏</small></span>
+      <span class="chip">玩具<small>12 个收藏</small></span>
+      <span class="chip">RAG<small>8 个收藏</small></span>
+      <span class="chip">TTS<small>6 个收藏</small></span>
+      <span class="chip">OCR<small>6 个收藏</small></span>
+      <span class="chip">ASR<small>4 个收藏</small></span>
+      <span class="chip">工具<small>3 个收藏</small></span>
+      <span class="chip">Delay<small>3 个收藏</small></span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-links">
+    <a href="https://github.com/cecilia4412" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://space.bilibili.com/1920131239" target="_blank" rel="noopener">Bilibili</a>
+    <a href="https://steamcommunity.com/profiles/76561198726425168/" target="_blank" rel="noopener">Steam</a>
+    <a href="mailto:cecilia4412@qq.com">cecilia4412@qq.com</a>
+  </div>
+  <div>© 2026 cecilia4412 · Powered by GitHub Pages</div>
+</footer>
+
+<script>
+// 打字机轮播
+(function () {
+  var phrases = ['研究 ASR 语音识别', '折腾 TTS 语音合成', '搭建 LLM Agent', '写点部署文档', '养一只桌面宠物'];
+  var el = document.getElementById('typed');
+  var pi = 0, ci = 0, deleting = false;
+  function tick() {
+    var word = phrases[pi];
+    ci += deleting ? -1 : 1;
+    el.textContent = word.slice(0, ci);
+    var delay = deleting ? 45 : 110;
+    if (!deleting && ci === word.length) { delay = 1600; deleting = true; }
+    else if (deleting && ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; delay = 350; }
+    setTimeout(tick, delay);
+  }
+  tick();
+})();
+
+// 滚动淡入
+(function () {
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>
