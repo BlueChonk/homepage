@@ -1,0 +1,79 @@
+---
+import '../index.css'
+import '../styles/blog.css'
+import '../styles/pages.css'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import Blobs from '../components/Blobs.astro'
+import BackTop from '../components/BackTop.astro'
+
+const {
+  title = 'cecilia · 技术二次元宅',
+  description = 'cecilia 的个人主页与技术博客：Python / React / AI 模型部署笔记',
+} = Astro.props
+
+// 飘落花瓣装饰：SVG 绘制（数量 6，样式见 index.css .petals）
+const petals = [0, 1, 2, 3, 4, 5]
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="icon" href="https://github.com/cecilia4412.png" />
+  </head>
+  <body>
+    <Blobs />
+    <div class="petals" aria-hidden="true">
+      {petals.map(() => (
+        <span>
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+            <path d="M12 2c1.9 0 3.4 1.1 4.1 2.8 1.8-.4 3.6.3 4.6 1.9 1 1.6.8 3.6-.4 5 1.2 1.4 1.4 3.4.4 5-1 1.6-2.8 2.3-4.6 1.9C15.4 20.9 13.9 22 12 22s-3.4-1.1-4.1-2.8c-1.8.4-3.6-.3-4.6-1.9-1-1.6-.8-3.6.4-5-1.2-1.4-1.4-3.4-.4-5 1-1.6 2.8-2.3 4.6-1.9C8.6 3.1 10.1 2 12 2zm0 6.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5z" />
+          </svg>
+        </span>
+      ))}
+    </div>
+    <Nav />
+    <div class="read-progress" id="readProgress" aria-hidden="true"></div>
+    <slot />
+    <Footer />
+    <BackTop />
+
+    <script>
+      // 滚动入场：为 .reveal 元素加上 .visible
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add('visible')
+              io.unobserve(e.target)
+            }
+          })
+        },
+        { threshold: 0.12 }
+      )
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el))
+
+      // 阅读进度条（仅在文章详情页显示）
+      const bar = document.getElementById('readProgress')
+      const article = document.querySelector('.post-page .markdown')
+      if (bar && article) {
+        const onScroll = () => {
+          const start = article.getBoundingClientRect().top + window.scrollY
+          const total = article.offsetHeight
+          const scrolled = window.scrollY - start + 120
+          const pct = Math.min(100, Math.max(0, (scrolled / total) * 100))
+          bar.style.transform = `scaleX(${pct / 100})`
+        }
+        onScroll()
+        window.addEventListener('scroll', onScroll, { passive: true })
+        window.addEventListener('resize', onScroll)
+      } else if (bar) {
+        bar.remove()
+      }
+    </script>
+  </body>
+</html>

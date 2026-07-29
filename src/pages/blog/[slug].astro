@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import { getCollection, render } from 'astro:content'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog')
+  return posts.map((p) => ({ params: { slug: p.slug }, props: { post: p } }))
+}
+
+const { post } = Astro.props
+const { Content } = await render(post)
+---
+<BaseLayout title={`${post.data.title} | cecilia`} description={post.data.summary}>
+  <main class="post-page">
+    <a class="back-link" href="/blog">← 返回笔记</a>
+    <article class="post markdown">
+      <Content />
+    </article>
+  </main>
+</BaseLayout>

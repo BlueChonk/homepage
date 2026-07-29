@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import Icon from '../components/Icons.astro'
+import { NAV_GROUPS } from '../data/site'
+
+// 从 href 推导域名（去掉 www.）
+const domainOf = (href: string) => {
+  try {
+    const h = new URL(href).host
+    return h.startsWith('www.') ? h.slice(4) : h
+  } catch {
+    return href
+  }
+}
+
+const total = NAV_GROUPS.reduce((s, g) => s + g.links.length, 0)
+---
+<BaseLayout
+  title="网站导航 · cecilia"
+  description="收录个人网站、常用工具和收藏网站"
+>
+  <main class="sub-page nav-page">
+    <header class="nav-hero">
+      <span class="nav-eyebrow">PROJECTS</span>
+      <h1 class="nav-h1">网站导航</h1>
+      <p class="section-sub">收录个人网站、常用工具和收藏网站</p>
+    </header>
+
+    {/* 胶囊标签栏：点跳转各分类锚点 */}
+    <nav class="nav-tabs" aria-label="网站导航分类">
+      <a href="#top" class="nav-tab active">
+        <Icon name="grid" size={15} class="nav-tab-ico" />
+        全部 <span class="nav-tab-count">{total}</span>
+      </a>
+      {
+        NAV_GROUPS.map((g) => (
+          <a href={`#${g.key}`} class="nav-tab">
+            <Icon name={g.icon} size={15} class="nav-tab-ico" />
+            {g.title} <span class="nav-tab-count">{g.links.length}</span>
+          </a>
+        ))
+      }
+    </nav>
+
+    <div id="top"></div>
+
+    {
+      NAV_GROUPS.map((g) => (
+        <section id={g.key} class="nav-section reveal">
+          <div class="nav-section-head">
+            <span class="nav-section-ico"><Icon name={g.icon} size={18} /></span>
+            <span class="nav-section-title">{g.title}</span>
+            <span class="nav-section-count">{g.links.length}</span>
+            <span class="nav-section-rule" />
+          </div>
+
+          <div class="nav-grid">
+            {g.links.map((l) => (
+              <a
+                class="nav-card"
+                href={l.href}
+                target="_blank"
+                rel="noopener"
+                title={l.name}
+              >
+                <div class="nav-card-top">
+                  {l.favicon && (
+                    <img
+                      class="nav-card-fav"
+                      src={l.favicon}
+                      alt=""
+                      loading="lazy"
+                      width="22"
+                      height="22"
+                    />
+                  )}
+                  <span class="nav-card-name">{l.name}</span>
+                </div>
+                {l.desc && <p class="nav-card-desc">{l.desc}</p>}
+                <span class="nav-card-mid" aria-hidden="true" />
+                <span class="nav-card-domain">{l.domain || domainOf(l.href)}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+  </main>
+
+  <script>
+    const tabs = document.querySelectorAll<HTMLAnchorElement>('.nav-tab')
+    const setActive = (el: Element | null) => {
+      tabs.forEach((t) => t.classList.toggle('active', t === el))
+    }
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => setActive(tab))
+    })
+    // 初始按地址 hash 高亮对应标签
+    const hash = decodeURIComponent(location.hash || '').slice(1)
+    if (hash) {
+      const target = document.querySelector<HTMLAnchorElement>(`.nav-tab[href="#${hash}"]`)
+      if (target) setActive(target)
+    }
+  </script>
+</BaseLayout>

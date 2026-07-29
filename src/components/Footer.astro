@@ -1,0 +1,23 @@
+---
+import { SOCIALS, EMAIL } from '../data/site'
+---
+<footer id="contact">
+  <div class="foot-links">
+    {
+      SOCIALS.map((s) =>
+        s.href.startsWith('mailto:') ? (
+          <a class="email-link" data-email={EMAIL} href={`mailto:${EMAIL}`}>
+            {s.name}
+          </a>
+        ) : (
+          <a href={s.href} target="_blank" rel="noopener">
+            {s.name}
+          </a>
+        )
+      )
+    }
+  </div>
+
+  <div class="foot-cia">Ciallo～(∠・ω&lt; )⌒★</div>
+  <div>© 2026 cecilia4412 · Powered by Astro</div>
+</footer>

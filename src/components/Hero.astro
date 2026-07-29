@@ -1,0 +1,148 @@
+---
+import Icon from './Icons.astro'
+import avatar from '../assets/cecilia4412.png'
+import phoebe from '../assets/phoebe.png'
+import { SOCIALS, EMAIL, TYPING_PHRASES, POKE_AUDIO } from '../data/site'
+---
+
+<section id="top" class="hero">
+  <div class="hero-idol">
+    <div class="avatar-ring">
+      <img src={avatar.src} alt="cecilia 的头像" />
+    </div>
+  </div>
+
+  <div class="badge"><Icon name="bolt" size={14} class="badge-ico" /> 技术二次元宅 · Tech Otaku <Icon name="bolt" size={14} class="badge-ico" /></div>
+
+  <div class="hero-greet">
+    <div class="hero-greet-text">
+      <h1>你好，我是 <span class="wave">cecilia</span></h1>
+
+      <div class="typing-line">
+        正在 <span class="typed" data-phrases={JSON.stringify(TYPING_PHRASES)}></span><span class="caret"></span>
+      </div>
+    </div>
+
+    <div class="hero-phoebe">
+      <button class="poke-fig phoebe-poke" aria-label="戳菲比" data-audio={JSON.stringify(POKE_AUDIO)}>
+        <img src={phoebe.src} alt="菲比" draggable="false" />
+      </button>
+      <div class="poke-hint">戳戳我～</div>
+    </div>
+  </div>
+
+  <p class="bio">
+    白天写代码、折腾 ASR / TTS 与 LLM Agent，从零复现模型、把服务部署上线；<br />
+    晚上听歌、戳菲比、养桌面宠物、收集玩具 —— 一个把兴趣跑成项目的技术宅。
+  </p>
+
+  <div class="cia-greet">Ciallo～(∠・ω&lt; )⌒★</div>
+
+  <div class="status">
+    <span class="status-dot"></span> 当前状态：折腾代码中，欢迎来戳菲比 (∠・ω&lt; )⌒☆
+  </div>
+
+  <div class="socials">
+    {
+      SOCIALS.map((s) =>
+        s.href.startsWith('mailto:') ? (
+          <a class="social-btn email-link" data-email={EMAIL} href={`mailto:${EMAIL}`}>
+            <Icon name={s.icon} />
+            {s.name}
+          </a>
+        ) : (
+          <a class="social-btn" href={s.href} target="_blank" rel="noopener">
+            <Icon name={s.icon} />
+            {s.name}
+          </a>
+        )
+      )
+    }
+  </div>
+
+  <audio class="poke-audio" preload="auto"></audio>
+</section>
+
+<script>
+  // 打字机效果
+  const typedEl = document.querySelector('.typed')
+  const caretEl = document.querySelector('.caret')
+  if (typedEl) {
+    const phrases = JSON.parse(typedEl.dataset.phrases || '[]')
+    const typeSpeed = 110
+    const deleteSpeed = 45
+    const holdTime = 1600
+    const gapTime = 350
+    let pi = 0
+    let ci = 0
+    let deleting = false
+    let timer = null
+    // 页面失焦 / 隐藏时暂停闪烁光标，避免残留插入符
+    const pauseCaret = () => caretEl && caretEl.classList.add('paused')
+    const resumeCaret = () => { if (caretEl && !document.hidden) caretEl.classList.remove('paused') }
+    document.addEventListener('visibilitychange', () => document.hidden ? pauseCaret() : resumeCaret())
+    window.addEventListener('blur', pauseCaret)
+    window.addEventListener('focus', resumeCaret)
+    const tick = () => {
+      const word = phrases[pi] || ''
+      ci += deleting ? -1 : 1
+      typedEl.textContent = word.slice(0, ci)
+      let delay = deleting ? deleteSpeed : typeSpeed
+      if (!deleting && ci === word.length) {
+        delay = holdTime
+        deleting = true
+      } else if (deleting && ci === 0) {
+        deleting = false
+        pi = (pi + 1) % phrases.length
+        delay = gapTime
+      }
+      timer = setTimeout(tick, delay)
+    }
+    tick()
+  }
+
+  // 戳菲比
+  const pokeBtn = document.querySelector('.phoebe-poke')
+  const audioEl = document.querySelector('.poke-audio')
+  if (pokeBtn && audioEl) {
+    const list = JSON.parse(pokeBtn.dataset.audio || '[]')
+    let last = -1
+    pokeBtn.addEventListener('click', () => {
+      let i = Math.floor(Math.random() * list.length)
+      if (list.length > 1) {
+        while (i === last) i = Math.floor(Math.random() * list.length)
+      }
+      last = i
+      audioEl.src = list[i]
+      audioEl.currentTime = 0
+      audioEl.play().catch(() => {})
+      pokeBtn.classList.remove('poking')
+      void pokeBtn.offsetWidth
+      pokeBtn.classList.add('poking')
+      setTimeout(() => pokeBtn.classList.remove('poking'), 500)
+    })
+  }
+
+  // 邮箱复制提示
+  function showToast(msg) {
+    let t = document.querySelector('.toast')
+    if (!t) {
+      t = document.createElement('div')
+      t.className = 'toast'
+      document.body.appendChild(t)
+    }
+    t.textContent = msg
+    t.classList.add('show')
+    setTimeout(() => t && t.classList.remove('show'), 1800)
+  }
+  document.querySelectorAll('.email-link').forEach((a) => {
+    a.addEventListener('click', async () => {
+      const email = a.dataset.email
+      if (!email) return
+      try {
+        await navigator.clipboard.writeText(email)
+        showToast('邮箱已复制：' + email)
+      } catch (e) {}
+    })
+  })
+</script>

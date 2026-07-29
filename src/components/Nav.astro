@@ -1,0 +1,58 @@
+---
+import Icon from './Icons.astro'
+import { SOCIALS } from '../data/site'
+
+const path = Astro.url.pathname
+const isActive = (p: string) =>
+  p === '/' ? path === '/' : path.startsWith(p)
+---
+
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" aria-label="首页">
+      <span class="logo-badge">C</span>
+      <span class="logo-name">cecilia</span>
+    </a>
+
+    <nav class="nav-links" id="navLinks" aria-label="主导航">
+      <a href="/" class:list={['hide-m', { active: isActive('/') }]}>主页</a>
+      <a href="/blog" class:list={['hide-m', { active: isActive('/blog') }]}>笔记</a>
+      <a href="/nav" class:list={['hide-m', { active: isActive('/nav') }]}>网站导航</a>
+
+      <div class="nav-socials">
+        {
+          SOCIALS.map((s) => (
+            <a href={s.href} target="_blank" rel="noopener" aria-label={s.name} title={s.name}>
+              <Icon name={s.icon} size={18} />
+            </a>
+          ))
+        }
+      </div>
+    </nav>
+
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="菜单" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<script>
+  const nav = document.getElementById('nav')!
+  const toggle = document.getElementById('navToggle')!
+  const links = document.getElementById('navLinks')!
+
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8)
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+
+  const setOpen = (open: boolean) => {
+    links.classList.toggle('open', open)
+    toggle.classList.toggle('open', open)
+    toggle.setAttribute('aria-expanded', String(open))
+    document.body.classList.toggle('nav-open', open)
+  }
+  toggle.addEventListener('click', () => setOpen(!links.classList.contains('open')))
+  links.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) setOpen(false)
+  })
+</script>

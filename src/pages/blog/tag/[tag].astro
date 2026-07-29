@@ -1,0 +1,36 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { getCollection } from 'astro:content'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog')
+  const tags = [...new Set(posts.flatMap((p) => p.data.tags))]
+  return tags.map((tag) => ({
+    params: { tag },
+    props: { posts: posts.filter((p) => p.data.tags.includes(tag)) },
+  }))
+}
+
+const { tag, posts } = Astro.props
+const sorted = posts.sort((a, b) => a.data.date.valueOf() - b.data.date.valueOf())
+---
+<BaseLayout title={`#${tag} | cecilia`} description={`标签：${tag} 下的笔记`}>
+  <main class="blog-page">
+    <a class="back-link" href="/blog">← 返回笔记</a>
+    <span class="nav-eyebrow">TAG</span>
+    <h1 class="blog-h1">标签：{tag}</h1>
+    <div class="cards">
+      {
+        sorted.map((p) => (
+          <a class="card post-card" href={`/blog/${p.slug}/`}>
+            <div class="card-head">
+              <h3>{p.data.title}</h3>
+            </div>
+            <p>{p.data.summary}</p>
+            <span class="post-meta">{p.data.date.toISOString().slice(0, 10)}</span>
+          </a>
+        ))
+      }
+    </div>
+  </main>
+</BaseLayout>

@@ -1,0 +1,51 @@
+---
+import Icon from './Icons.astro'
+import { ABOUT_SKILLS, JOB_INTENT } from '../data/site'
+---
+<section id="about" class="reveal">
+  <h2 class="section-title">关于我</h2>
+  <p class="section-sub">一个把代码和二次元揉在一起的技术宅 · 正在寻找新机会</p>
+
+  <div class="about-card">
+    <p class="about-lead">
+      我是 <strong>cecilia</strong>，一个热衷
+      <span class="hl">Python 开发</span> 与
+      <span class="hl">React 前端开发</span>
+      的技术宅。平时在终端里写后端服务、调模型、折腾部署；也喜欢用 React
+      把想法做成能跑、好看的产品。比起「会用工具」，我更在意「搞得懂原理」——从语音模型到
+      MCP 网关，从 Docker 部署到个人主页，都爱自己动手。
+    </p>
+
+    <div class="about-intent">
+      <span class="about-status">
+        <span class="dot" aria-hidden="true"></span>
+        开放中 · 求职ing
+      </span>
+      {
+        JOB_INTENT.map((t) => (
+          <span class="about-badge">{t}</span>
+        ))
+      }
+    </div>
+
+    <div class="about-skills">
+      {
+        ABOUT_SKILLS.map((g) => (
+          <div class="about-skill">
+            <div class="about-skill-h">{g.group}</div>
+            <ul>
+              {g.items.map((it) => (
+                <li>{it}</li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="about-life">
+      生活里是标准的二次元：听歌、戳菲比、养桌面宠物，深夜一边摸鱼一边写代码。
+      比起「完成需求」，我更享受把一件小事做到自己满意的过程。
+    </p>
+  </div>
+</section>

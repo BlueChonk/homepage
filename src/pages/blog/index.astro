@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import Icon from '../../components/Icons.astro'
+import { getCollection } from 'astro:content'
+
+const posts = (await getCollection('blog')).sort(
+  (a, b) => a.data.date.valueOf() - b.data.date.valueOf()
+)
+
+const preview = (body = '') =>
+  body
+    .replace(/^\s*#\s+[^\n]*\n/, '')            // 去掉开头 H1 标题
+    .replace(/```[\s\S]*?```/g, ' ')            // 去掉代码块
+    .replace(/`([^`]*)`/g, '$1')                // 去掉内联代码符号
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')      // 去掉图片
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')    // 链接保留文字
+    .replace(/[#>*_~|]/g, ' ')                  // 去掉 markdown 标记
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200)
+---
+<BaseLayout title="笔记 | cecilia" description="Docker / FRP / MinIO / HTTPS / 向量模型等部署笔记">
+  <main class="blog-page">
+    <span class="nav-eyebrow">NOTES</span>
+    <h1 class="blog-h1">笔记</h1>
+    <p class="section-sub">Docker / FRP / MinIO / HTTPS / 向量模型等部署笔记</p>
+    <div class="cards">
+      {
+        posts.map((p) => (
+          <a class="note-card" href={`/blog/${p.slug}/`}>
+            <div class="note-card-top">
+              <span class="note-card-ico"><Icon name="doc" size={18} /></span>
+              <h3 class="note-card-title">{p.data.title}</h3>
+            </div>
+            <p class="note-card-note">{preview(p.body)}</p>
+          </a>
+        ))
+      }
+    </div>
+  </main>
+</BaseLayout>
