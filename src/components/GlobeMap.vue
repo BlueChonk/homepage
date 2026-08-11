@@ -147,7 +147,7 @@ const distanceKm = ref(null)
 const visitorCityText = computed(() => {
   const v = visitor.value
   if (!v || v.lat == null) return ''
-  return cityZhName(v.city) || '访客'
+  return cityZhName(v.city) || (v.city ? String(v.city).trim() : '') || '访客'
 })
 
 let loadTimer = 0
@@ -423,7 +423,9 @@ function cityLabelData() {
   if (v && v.lat != null) {
     features.push({
       type: 'Feature',
-      properties: { name: cityZhName(v.city) || '访客' },
+      properties: {
+        name: cityZhName(v.city) || (v.city ? String(v.city).trim() : '') || '访客',
+      },
       geometry: { type: 'Point', coordinates: [v.lng, v.lat] },
     })
   }
@@ -498,6 +500,35 @@ function addVisitorMarker() {
 /* ===== 访客定位：IP 多接口兜底（限流/失败自动切换）+ 浏览器精确定位 ===== */
 async function locateVisitor() {
   const probes = [
+    /* 中文优先：pconline（HTTPS，GBK 编码）返回中文省市；城市在中文字典里时直接取坐标 */
+    {
+      url: 'https://whois.pconline.com.cn/ipJson.jsp?json=true',
+      decode: async (res) =>
+        JSON.parse(new TextDecoder('gbk').decode(await res.arrayBuffer())),
+      parse: (d) => {
+        if (!d || !d.city) return null
+        const city = String(d.city).replace(/[市地区盟]$/, '')
+        const zh = cityZhName(city) || city
+        const hit = ZH_CITIES.find(([cn]) => cn === zh)
+        return hit
+          ? { lat: hit[2], lng: hit[1], city: zh, country: d.pro, source: 'ip' }
+          : null
+      },
+    },
+    /* 中文优先：ip-api.com 的 lang=zh-CN 返回中文城市名（仅 http，https 下会自动跳过） */
+    {
+      url: 'http://ip-api.com/json/?lang=zh-CN',
+      parse: (d) =>
+        d && d.status === 'success' && d.lat != null
+          ? {
+              lat: d.lat,
+              lng: d.lon,
+              city: String(d.city || '').replace(/[市地区盟]$/, '') || d.city,
+              country: d.country,
+              source: 'ip',
+            }
+          : null,
+    },
     {
       url: 'https://get.geojs.io/v1/ip/geo.json',
       parse: (d) => {
@@ -544,7 +575,8 @@ async function locateVisitor() {
       const res = await fetch(p.url, { signal: ctrl.signal, cache: 'no-store' })
       clearTimeout(timer)
       if (!res.ok) continue
-      const v = p.parse(await res.json())
+      const data = p.decode ? await p.decode(res) : await res.json()
+      const v = p.parse(data)
       if (v) {
         visitor.value = v
         break
