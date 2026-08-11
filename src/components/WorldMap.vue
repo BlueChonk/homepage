@@ -1,31 +1,31 @@
 <script setup>
-import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
-import { Map as MaplibreMap, Marker, AttributionControl, LngLatBounds } from 'maplibre-gl'
+import { onMounted, onUnmounted, ref, computed, watch, nextTick } from 'vue'
+import {
+  Map as MaplibreMap,
+  Marker,
+  AttributionControl,
+  NavigationControl,
+} from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
+import { FOOTPRINTS } from '../data/footprints'
 
 const { resolved } = useTheme()
 
-/* ===== 标记点：在这里增删坐标即可，地图会自动缩放定位 =====
-   lng = 经度（东经为正），lat = 纬度（北纬为正） */
-const MARKERS = [
-  { lng: 113.2644, lat: 23.1291, label: '广州', note: '广州' },
-  { lng: 114.0579, lat: 22.5431, label: '深圳', note: '深圳' },
-  { lng: 113.1219, lat: 23.0215, label: '佛山', note: '佛山' },
-  { lng: 113.7518, lat: 23.0205, label: '东莞', note: '东莞' },
-  { lng: 111.5667, lat: 24.4036, label: '贺州', note: '贺州' },
-  { lng: 121.4737, lat: 31.2304, label: '上海', note: '上海' },
-  { lng: 116.4074, lat: 39.9042, label: '北京', note: '北京' },
-  { lng: 108.3669, lat: 22.817, label: '南宁', note: '南宁' },
-  { lng: 111.2789, lat: 23.4769, label: '梧州', note: '梧州' },
-  { lng: 110.9981, lat: 22.9181, label: '岑溪', note: '岑溪' },
-]
+/* ===== 站主家乡：中国广西梧州市龙圩区龙圩镇广信路 215 号 =====
+   坐标采用与高德瓦片一致的 GCJ-02 坐标系，保证标记与街道精确对齐 */
+const HOME = {
+  name: 'Wuzhou · Guangxi, China',
+  short: 'Wuzhou, Guangxi',
+  address: 'Guangxin Road 215, Longxu Town, Longxu District, Wuzhou, Guangxi, China',
+  lng: 111.2573,
+  lat: 23.4312,
+}
 
-/* 免费矢量瓦片（多源自动切换：国内优先，避免单一源访问受限导致黑屏） */
+/* 瓦片源（多源自动切换：国内优先，避免单一源访问受限导致黑屏） */
 const PROVIDERS = [
   {
     name: 'amap',
-    // 高德栅格瓦片：国内可直连；暗色主题下对画布做反色滤镜
     style: () => ({
       version: 8,
       sources: {
@@ -62,8 +62,18 @@ const PROVIDERS = [
 const loading = ref(true)
 const failed = ref(false)
 const providerIndex = ref(0)
+const expanded = ref(false)
+const visitor = ref(null)
+const distanceKm = ref(null)
+
 let loadTimer = 0
 let tileErrors = 0
+let map = null
+let markersAdded = false
+let homeMarker = null
+let visitorMarker = null
+
+const container = ref(null)
 
 function styleUrl() {
   const p = PROVIDERS[providerIndex.value]
@@ -75,6 +85,17 @@ function styleUrl() {
 const darkFilter = computed(
   () => resolved.value === 'dark' && PROVIDERS[providerIndex.value]?.name === 'amap'
 )
+
+function applySky() {
+  if (!map) return
+  const dark = resolved.value === 'dark'
+  map.setSky({
+    'atmosphere-blend': 1,
+    'sky-color': dark ? '#0b1020' : '#cfe8ff',
+    'horizon-color': dark ? '#2b3a5c' : '#eaf4ff',
+    'fog-color': dark ? '#0b1020' : '#ffffff',
+  })
+}
 
 function armLoadTimer() {
   clearTimeout(loadTimer)
@@ -96,67 +117,211 @@ function tryNextProvider() {
   armLoadTimer()
 }
 
-const container = ref(null)
-let map = null
-let markersAdded = false
+/* ===== 距离计算（Haversine 公式，单位 km） ===== */
+function haversineKm(aLat, aLng, bLat, bLng) {
+  const R = 6371
+  const dLat = ((bLat - aLat) * Math.PI) / 180
+  const dLng = ((bLng - aLng) * Math.PI) / 180
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) *
+      Math.cos((bLat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+const distanceText = computed(() => {
+  if (distanceKm.value === null) return ''
+  const km = distanceKm.value
+  if (km < 1) return `${Math.max(1, Math.round(km * 1000))} m`
+  if (km < 100) return `${km.toFixed(1)} km`
+  return `${Math.round(km).toLocaleString('en-US')} km`
+})
+
+function updateDistance() {
+  if (visitor.value?.lat != null) {
+    distanceKm.value = haversineKm(HOME.lat, HOME.lng, visitor.value.lat, visitor.value.lng)
+  }
+}
+
+/* ===== 标记 ===== */
+function addHomeMarker() {
+  const el = document.createElement('div')
+  el.className = 'map-pin home-pin'
+  el.title = HOME.address
+  el.innerHTML = `
+    <span class="map-pin-dot"></span>
+    <span class="map-pin-label">${HOME.short}</span>
+  `
+  homeMarker = new Marker({ element: el, anchor: 'bottom' })
+    .setLngLat([HOME.lng, HOME.lat])
+    .addTo(map)
+}
+
+function addVisitorMarker() {
+  const v = visitor.value
+  if (!v || v.lat == null || !map) return
+  const label = v.city && v.country ? `${v.city}, ${v.country}` : 'You'
+  const el = document.createElement('div')
+  el.className = 'map-pin visitor-pin'
+  el.innerHTML = `
+    <span class="map-pin-dot"></span>
+    <span class="map-pin-label">${label}</span>
+  `
+  visitorMarker?.remove()
+  visitorMarker = new Marker({ element: el, anchor: 'bottom' })
+    .setLngLat([v.lng, v.lat])
+    .addTo(map)
+}
 
 function addMarkers() {
   if (!map || markersAdded) return
   markersAdded = true
-  for (const m of MARKERS) {
+  for (const m of FOOTPRINTS) {
     const el = document.createElement('div')
     el.className = 'map-pin'
     el.innerHTML = `
       <span class="map-pin-dot"></span>
-      <span class="map-pin-label">${m.label}</span>
+      <span class="map-pin-label">${m.name}</span>
     `
     new Marker({ element: el, anchor: 'bottom' }).setLngLat([m.lng, m.lat]).addTo(map)
   }
-  // 让地图自动框住所有标记点
-  if (MARKERS.length) {
-    const bounds = new LngLatBounds()
-    MARKERS.forEach((m) => bounds.extend([m.lng, m.lat]))
-    map.fitBounds(bounds, { padding: 64, duration: 0, maxZoom: 8 })
+  addHomeMarker()
+}
+
+/* ===== 访客定位：IP 兜底 + 浏览器精确定位 ===== */
+async function locateVisitor() {
+  try {
+    const res = await fetch('https://ipwho.is/')
+    const d = await res.json()
+    if (d && d.success) {
+      visitor.value = {
+        lat: d.latitude,
+        lng: d.longitude,
+        city: d.city,
+        country: d.country,
+        source: 'ip',
+      }
+      updateDistance()
+      addVisitorMarker()
+    }
+  } catch {
+    try {
+      const res = await fetch('https://ipapi.co/json/')
+      const d = await res.json()
+      if (d && d.latitude != null) {
+        visitor.value = {
+          lat: d.latitude,
+          lng: d.longitude,
+          city: d.city,
+          country: d.country_name,
+          source: 'ip',
+        }
+        updateDistance()
+        addVisitorMarker()
+      }
+    } catch {
+      /* 网络不可用时等待浏览器定位 */
+    }
   }
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        visitor.value = {
+          ...(visitor.value || {}),
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          source: 'gps',
+        }
+        updateDistance()
+        addVisitorMarker()
+      },
+      () => {
+        /* 用户拒绝或定位失败：保留 IP 定位结果 */
+      },
+      { timeout: 8000, maximumAge: 600000 }
+    )
+  }
+}
+
+/* ===== 视图控制 ===== */
+function goHome() {
+  map?.flyTo({
+    center: [HOME.lng, HOME.lat],
+    zoom: 13,
+    pitch: 55,
+    bearing: 0,
+    duration: 2200,
+  })
+}
+
+function goWorld() {
+  map?.flyTo({
+    center: [HOME.lng, 26],
+    zoom: 1.6,
+    pitch: 22,
+    bearing: -12,
+    duration: 2200,
+  })
+}
+
+function goVisitor() {
+  const v = visitor.value
+  if (v && v.lat != null) {
+    map?.flyTo({ center: [v.lng, v.lat], zoom: 5.5, pitch: 40, duration: 2200 })
+  }
+}
+
+async function toggleExpand() {
+  expanded.value = !expanded.value
+  await nextTick()
+  map?.resize()
 }
 
 onMounted(() => {
   map = new MaplibreMap({
     container: container.value,
     style: styleUrl(),
-    center: [113.9, 22.6],
-    zoom: 6,
+    center: [HOME.lng, 27.5],
+    zoom: 3.5,
+    pitch: 35,
+    bearing: -8,
+    projection: { type: 'globe' },
+    renderWorldCopies: false,
     attributionControl: false,
     failIfMajorPerformanceCaveat: false,
   })
-  map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
+  map.addControl(
+    new NavigationControl({ visualizePitch: true, showCompass: true, showZoom: true }),
+    'top-right'
+  )
+  map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
   container.value?.classList.toggle('dark-tiles', darkFilter.value)
   map.on('load', () => {
     clearTimeout(loadTimer)
     loading.value = false
     tileErrors = 0
     addMarkers()
+    applySky()
   })
   map.on('error', (e) => {
     if (failed.value) return
     const err = e?.error
     if (e.source || e.tile) {
-      // 瓦片连续失败说明当前源不可用（如网络受限），累计到阈值后换源
       tileErrors++
       if (tileErrors >= 12) tryNextProvider()
       return
     }
-    // 仅在地图尚未加载完成时，样式级错误（无 source/tile）触发换源；
-    // 加载完成后出现的字体/资源错误一律忽略，避免反复重载
     if (err && !map.loaded() && !failed.value) tryNextProvider()
   })
   armLoadTimer()
+  locateVisitor()
 })
 
-/* 主题切换时无缝换底图（标记点保留） */
 watch([resolved, providerIndex], () => {
   const p = PROVIDERS[providerIndex.value]
   container.value?.classList.toggle('dark-tiles', darkFilter.value)
+  applySky()
   if (map && !failed.value && p && !p.style) {
     map.setStyle(styleUrl(), { diff: false })
   }
@@ -164,6 +329,8 @@ watch([resolved, providerIndex], () => {
 
 onUnmounted(() => {
   clearTimeout(loadTimer)
+  visitorMarker?.remove()
+  homeMarker?.remove()
   map?.remove()
   map = null
   markersAdded = false
@@ -172,16 +339,57 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="container" class="world-map" role="region" aria-label="世界地图足迹">
+  <div
+    ref="container"
+    class="world-map"
+    :class="{ expanded }"
+    role="region"
+    aria-label="3D 地球与足迹"
+  >
     <div v-if="loading" class="map-overlay">
       <span class="map-loading-dot"></span>
-      <span>地图加载中…</span>
+      <span>地球加载中…</span>
     </div>
     <div v-if="failed" class="map-overlay">
       <div class="map-error-emoji">🗺️</div>
       <p class="map-error-main">地图暂时加载失败</p>
       <p class="map-error-hint">请检查网络后刷新页面</p>
     </div>
+
+    <!-- 右下角信息卡：家乡地址 + 访客距离 + 视图控制 -->
+    <aside class="map-card">
+      <div class="map-card-head">
+        <span class="map-card-title">My Home · 我的家乡</span>
+        <button class="map-card-icon" :title="expanded ? '还原' : '放大扩展'" @click="toggleExpand">
+          <svg v-if="!expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4l6 6M14 10l6-6M4 20l6-6M14 14l6 6" />
+          </svg>
+        </button>
+      </div>
+      <p class="map-card-addr" :title="HOME.address">{{ HOME.address }}</p>
+      <p class="map-card-now">
+        <span class="now-dot"></span>
+        Now at: {{ HOME.name }}
+      </p>
+
+      <div v-if="distanceKm !== null && visitor" class="map-card-visitor">
+        <span class="you-dot"></span>
+        <span class="you-text">
+          You · {{ visitor.city || 'your location' }}<template v-if="visitor.country">, {{ visitor.country }}</template>
+          <b>{{ distanceText }} away</b>
+        </span>
+      </div>
+      <p v-else class="map-card-hint">允许定位后，将显示你与家乡的距离</p>
+
+      <div class="map-card-actions">
+        <button @click="goHome">家乡</button>
+        <button @click="goWorld">世界</button>
+        <button v-if="visitor && visitor.lat != null" @click="goVisitor">我的位置</button>
+      </div>
+    </aside>
   </div>
 </template>
 
@@ -189,16 +397,29 @@ onUnmounted(() => {
 .world-map {
   position: relative;
   width: 100%;
-  height: 400px;
+  height: 460px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  /* 加载/失败时显示主题化点阵，而不是一片黑 */
   background:
     radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 1.5px) 0 0 / 26px 26px,
     var(--bg-soft);
+  transition: border-radius 0.25s ease;
 }
+
+/* 放大扩展：铺满整个视口 */
+.world-map.expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  border: none;
+}
+
 .map-overlay {
   position: absolute;
   inset: 0;
@@ -241,7 +462,132 @@ onUnmounted(() => {
   opacity: 0.75;
 }
 
-/* 自定义标记：强调色脉冲圆点 + 悬浮标签（动态创建，用 :deep 命中） */
+/* ===== 右下角信息卡 ===== */
+.map-card {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 20;
+  width: min(320px, calc(100% - 28px));
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+.map-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.map-card-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.map-card-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+.map-card-icon:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.map-card-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.map-card-addr {
+  margin: 8px 0 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.map-card-now {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.now-dot,
+.you-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.map-card-visitor {
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+  border: 1px solid var(--accent-border);
+}
+.you-dot {
+  margin-top: 4px;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+.you-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.you-text b {
+  display: block;
+  font-size: 13px;
+  color: var(--accent-strong);
+}
+.map-card-hint {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.map-card-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+.map-card-actions button {
+  flex: 1 1 auto;
+  padding: 7px 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+.map-card-actions button:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+/* ===== 标记 ===== */
 .world-map :deep(.map-pin) {
   display: flex;
   flex-direction: column;
@@ -251,8 +597,8 @@ onUnmounted(() => {
 }
 .world-map :deep(.map-pin-dot) {
   position: relative;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: var(--accent);
   border: 2.5px solid var(--surface);
@@ -284,7 +630,49 @@ onUnmounted(() => {
   box-shadow: var(--shadow-sm);
 }
 
-/* 导航控件配色跟随主题 */
+/* 家乡标记：金色强调 + 更大的脉冲 */
+.world-map :deep(.home-pin .map-pin-dot) {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  border-color: #fff;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.35), 0 4px 12px rgba(249, 115, 22, 0.45);
+}
+.world-map :deep(.home-pin .map-pin-dot)::after {
+  border-color: #fbbf24;
+}
+.world-map :deep(.home-pin .map-pin-label) {
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* 访客标记：绿色 */
+.world-map :deep(.visitor-pin .map-pin-dot) {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+.world-map :deep(.visitor-pin .map-pin-dot)::after {
+  border-color: #22c55e;
+}
+.world-map :deep(.visitor-pin .map-pin-label) {
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+/* ===== 控件配色 ===== */
+.world-map :deep(.maplibregl-ctrl-group) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.world-map :deep(.maplibregl-ctrl-group button) {
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+.world-map :deep(.maplibregl-ctrl-group button:hover) {
+  background: var(--surface-hover);
+}
 .world-map :deep(.maplibregl-ctrl-attrib) {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   color: var(--text-tertiary);
@@ -296,12 +684,17 @@ onUnmounted(() => {
 
 @media (max-width: 720px) {
   .world-map {
-    height: 300px;
+    height: 380px;
+  }
+  .map-card {
+    right: 10px;
+    bottom: 10px;
+    width: min(290px, calc(100% - 20px));
   }
 }
 @media (max-width: 480px) {
   .world-map {
-    height: 250px;
+    height: 340px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

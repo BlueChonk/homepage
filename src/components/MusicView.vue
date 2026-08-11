@@ -2,7 +2,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayer } from '../composables/usePlayer'
 import { useLyrics } from '../composables/useLyrics'
-import AppFooter from './AppFooter.vue'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
@@ -170,7 +169,7 @@ onUnmounted(() => {
 
 <template>
   <section class="view">
-    <!-- 沉浸背景：铺满整个音乐页（播放器 + 列表 + 页脚融为一体） -->
+    <!-- 沉浸背景：铺满整个音乐页（播放器 + 列表融为一体） -->
     <div class="stage-bg" :class="{ cover: !!coverSrc }" :style="coverStyle"></div>
     <div class="stage-overlay"></div>
 
@@ -186,10 +185,6 @@ onUnmounted(() => {
             <div class="disc" :class="{ spinning: playing }">
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
-            </div>
-            <div class="now-info">
-              <h2 class="title" :title="currentTrack.title">{{ currentTrack.title }}</h2>
-              <p v-if="currentTrack.artist" class="artist">{{ currentTrack.artist }}</p>
             </div>
           </div>
 
@@ -249,6 +244,14 @@ onUnmounted(() => {
         </div>
 
         <div class="ctrls">
+          <div class="bar-info">
+            <img v-if="coverSrc" :src="coverSrc" alt="" class="bar-cover" />
+            <span v-else class="bar-cover bar-cover-note">♪</span>
+            <div class="bar-meta">
+              <span class="bar-title" :title="currentTrack.title">{{ currentTrack.title }}</span>
+              <span v-if="currentTrack.artist" class="bar-artist">{{ currentTrack.artist }}</span>
+            </div>
+          </div>
           <div class="ctrls-left">
             <button class="ctrl" @click="prev" title="上一首" aria-label="上一首">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
@@ -324,7 +327,6 @@ onUnmounted(() => {
         </div>
       </Transition>
 
-      <AppFooter />
     </template>
 
     <template v-else>
@@ -333,7 +335,6 @@ onUnmounted(() => {
         <p>还没有音乐。</p>
         <p class="hint">把音频放进 <code>public/music/</code>（支持 mp3/wav/ogg/flac/m4a/aac）后，运行 <code>npm run gen:manifest</code> 即可出现在这里。</p>
       </div>
-      <AppFooter />
     </template>
   </section>
 </template>
@@ -451,26 +452,6 @@ html[data-theme="dark"] .stage-overlay {
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.now-info {
-  min-width: 0;
-}
-.title {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.artist {
-  margin: 6px 0 0;
-  font-size: 14px;
-  color: var(--text-tertiary);
 }
 
 /* ===== 歌词：无边框沉浸展示 ===== */
@@ -665,13 +646,59 @@ html[data-theme="dark"] .stage-overlay {
   opacity: 1;
 }
 
-/* 控制按钮：主控居中，音量与列表按钮靠右 */
+/* 控制按钮：左侧歌曲信息，主控居中，音量与列表按钮靠右 */
 .ctrls {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   min-height: 60px;
+}
+.bar-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: 34%;
+  margin-right: auto;
+  overflow: hidden;
+}
+.bar-cover {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+}
+.bar-cover-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--text-tertiary);
+}
+.bar-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.bar-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-artist {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ctrls-left {
   position: absolute;
@@ -901,13 +928,6 @@ html[data-theme="dark"] .stage-overlay {
     transform: translateY(100%);
   }
 }
-/* 页脚固定于页面最底部：不随列表滚动，紧凑融入播放器整体 */
-.view :deep(.app-footer) {
-  flex: 0 0 auto;
-  margin-top: 12px;
-  padding-top: 0;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
-}
 .list-title {
   font-size: 15px;
   font-weight: 700;
@@ -1074,6 +1094,9 @@ html[data-theme="dark"] .stage-overlay {
   .player-bar {
     padding: 4px 22px 14px;
   }
+  .bar-info {
+    max-width: 30%;
+  }
 }
 @media (max-width: 560px) {
   .player-main {
@@ -1082,9 +1105,6 @@ html[data-theme="dark"] .stage-overlay {
   .disc {
     width: 150px;
     height: 150px;
-  }
-  .title {
-    font-size: 21px;
   }
   .lyrics-inner {
     padding: 80px 6px;
@@ -1125,6 +1145,19 @@ html[data-theme="dark"] .stage-overlay {
   }
   .player-bar {
     padding: 4px 12px 10px;
+  }
+  .bar-info {
+    gap: 8px;
+    max-width: 32%;
+  }
+  .bar-cover {
+    display: none;
+  }
+  .bar-title {
+    font-size: 13px;
+  }
+  .bar-artist {
+    font-size: 11px;
   }
 }
 @media (max-width: 380px) {

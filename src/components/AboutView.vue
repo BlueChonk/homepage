@@ -5,6 +5,7 @@ import PhoebePoke from './PhoebePoke.vue'
 import CialloGreet from './CialloGreet.vue'
 import AppFooter from './AppFooter.vue'
 import WorldMap from './WorldMap.vue'
+import { FOOTPRINTS } from '../data/footprints'
 
 const phrases = [
   '热爱二次元的技术宅',
@@ -173,12 +174,29 @@ onUnmounted(() => {})
       <p v-show="!logHidden && logLoading" class="my-log-loading">加载中…</p>
     </section>
 
-    <!-- 足迹：MapLibre 世界地图（主题跟随亮/暗色） -->
-    <section class="my-map">
-      <div class="my-map-head">
-        <h2 class="my-map-title">Footprints</h2>
+    <!-- 3D 地球 + 居住地：独立模块，位于 Daily Log 与 Footprints 之间 -->
+    <section class="my-globe">
+      <div class="my-globe-head">
+        <h2 class="my-globe-title">Globe · 地球</h2>
+        <span class="my-globe-sub">My Residence · 我的居住地</span>
       </div>
       <WorldMap />
+    </section>
+
+    <!-- 足迹：到访过的城市列表 -->
+    <section class="my-footprints">
+      <div class="my-footprints-head">
+        <h2 class="my-footprints-title">
+          Footprints <span class="my-footprints-en">足迹</span>
+        </h2>
+      </div>
+      <ul class="footprint-list">
+        <li v-for="f in FOOTPRINTS" :key="f.name" class="footprint-chip">
+          <span class="fp-emoji">{{ f.emoji }}</span>
+          <span class="fp-name">{{ f.name }}</span>
+          <span class="fp-region">{{ f.region }}</span>
+        </li>
+      </ul>
     </section>
 
     <AppFooter />
@@ -519,23 +537,89 @@ onUnmounted(() => {})
   color: var(--text-tertiary);
 }
 
-/* ===== 足迹地图 ===== */
-.my-map {
+/* ===== 3D 地球 + 居住地模块 ===== */
+.my-globe {
   width: 100%;
   max-width: 860px;
-  margin: 28px auto 0;
+  margin: 44px auto 0;
   padding: 0 20px;
   text-align: left;
 }
-.my-map-head {
+.my-globe-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
   padding-bottom: 14px;
 }
-.my-map-title {
+.my-globe-title {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--accent);
+}
+.my-globe-sub {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+/* ===== 足迹城市列表 ===== */
+.my-footprints {
+  width: 100%;
+  max-width: 860px;
+  margin: 44px auto 0;
+  padding: 0 20px;
+  text-align: left;
+}
+.my-footprints-head {
+  padding-bottom: 14px;
+}
+.my-footprints-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.my-footprints-en {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--text-tertiary);
+}
+.footprint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.footprint-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.fp-emoji {
+  font-size: 15px;
+  line-height: 1;
+}
+.fp-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.fp-region {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
 }
 </style>
