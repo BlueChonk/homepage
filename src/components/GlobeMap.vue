@@ -366,11 +366,11 @@ function removeRoute() {
 }
 
 /* ===== 虚线可见性标准 =====
-   两点在屏幕上的距离占地图外框高度（上下宽度）的 50%～65%（超出 65% 则缩小），
+   两点在屏幕上的距离占地图外框高度（上下宽度）的 40%～50%（超出 50% 则缩小），
    并且“两个点 + 整条虚线”必须完整显示在地图框内（留边距），
    不满足就迭代缩放（太短放大、太长缩小），直到达标（上限 zoom 17）。 */
-const LINE_RATIO_MIN = 0.5
-const LINE_RATIO_MAX = 0.65
+const LINE_RATIO_MIN = 0.4
+const LINE_RATIO_MAX = 0.5
 const CAMERA_MARGIN = 56
 const LINE_MAX_ZOOM = 17
 const CAMERA_MAX_ITER = 8
