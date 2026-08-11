@@ -21,6 +21,81 @@ const HOME = {
   lat: 23.4312,
 }
 
+/* 中文地名标注：全国主要城市 + 全部足迹城市。
+   MapLibre 对 CJK 字符默认走本地字体渲染（localIdeographFontFamily），
+   因此无需额外的中文字形服务器即可显示中文。 */
+const ZH_CITIES = [
+  ['北京', 116.4074, 39.9042],
+  ['上海', 121.4737, 31.2304],
+  ['广州', 113.2644, 23.1291],
+  ['深圳', 114.0579, 22.5431],
+  ['佛山', 113.1219, 23.0215],
+  ['东莞', 113.7518, 23.0205],
+  ['贺州', 111.5667, 24.4036],
+  ['南宁', 108.3669, 22.817],
+  ['梧州', 111.2789, 23.4769],
+  ['岑溪', 110.9981, 22.9181],
+  ['香港', 114.1694, 22.3193],
+  ['澳门', 113.5491, 22.1987],
+  ['台北', 121.5654, 25.033],
+  ['杭州', 120.1551, 30.2741],
+  ['南京', 118.7969, 32.0603],
+  ['武汉', 114.3054, 30.5931],
+  ['成都', 104.0665, 30.5723],
+  ['重庆', 106.5516, 29.563],
+  ['西安', 108.9398, 34.3416],
+  ['长沙', 112.9388, 28.2282],
+  ['郑州', 113.6254, 34.7466],
+  ['青岛', 120.3826, 36.0671],
+  ['天津', 117.201, 39.0842],
+  ['大连', 121.6147, 38.914],
+  ['厦门', 118.0894, 24.4798],
+  ['昆明', 102.8329, 24.8801],
+  ['贵阳', 106.6302, 26.647],
+  ['兰州', 103.8343, 36.0611],
+  ['乌鲁木齐', 87.6168, 43.8256],
+  ['拉萨', 91.1409, 29.6456],
+  ['哈尔滨', 126.5349, 45.8038],
+  ['沈阳', 123.4315, 41.8057],
+  ['长春', 125.3235, 43.8171],
+  ['石家庄', 114.5149, 38.0428],
+  ['太原', 112.5489, 37.8706],
+  ['济南', 117.1201, 36.6512],
+  ['合肥', 117.2272, 31.8206],
+  ['南昌', 115.8582, 28.6829],
+  ['福州', 119.2965, 26.0745],
+  ['海口', 110.1989, 20.0444],
+  ['三亚', 109.5119, 18.2528],
+  ['桂林', 110.29, 25.2736],
+  ['柳州', 109.4159, 24.3264],
+  ['珠海', 113.5767, 22.2707],
+  ['中山', 113.392, 22.5176],
+  ['惠州', 114.4162, 23.1118],
+]
+
+/* 访客城市英文名 -> 中文名（IP 定位返回的常见城市） */
+const CITY_EN_ZH = {
+  beijing: '北京', shanghai: '上海', guangzhou: '广州', shenzhen: '深圳',
+  foshan: '佛山', dongguan: '东莞', hezhou: '贺州', nanning: '南宁',
+  wuzhou: '梧州', cenxi: '岑溪', hongkong: '香港', macau: '澳门',
+  hangzhou: '杭州', nanjing: '南京', wuhan: '武汉', chengdu: '成都',
+  chongqing: '重庆', xian: '西安', changsha: '长沙', zhengzhou: '郑州',
+  qingdao: '青岛', tianjin: '天津', dalian: '大连', xiamen: '厦门',
+  kunming: '昆明', guiyang: '贵阳', lanzhou: '兰州', urumqi: '乌鲁木齐',
+  lasa: '拉萨', harbin: '哈尔滨', shenyang: '沈阳', changchun: '长春',
+  shijiazhuang: '石家庄', taiyuan: '太原', jinan: '济南', hefei: '合肥',
+  nanchang: '南昌', fuzhou: '福州', haikou: '海口', sanya: '三亚',
+  guilin: '桂林', liuzhou: '柳州', zhuhai: '珠海', zhongshan: '中山',
+  huizhou: '惠州', taibei: '台北', taipei: '台北',
+}
+
+function cityZhName(raw) {
+  if (!raw) return ''
+  const s = String(raw).trim()
+  if (/[\u4e00-\u9fff]/.test(s)) return s
+  return CITY_EN_ZH[s.toLowerCase().replace(/[^a-z]/g, '')] || ''
+}
+
 /* 瓦片源（多源自动切换）
    优先使用矢量底图：3D 地球模式下矢量瓦片渲染开销远低于栅格瓦片，
    暗色主题直接用 dark-matter 风格，无需画布反色滤镜；
@@ -316,6 +391,77 @@ function applyPixelRatio() {
   map.setPixelRatio(expanded.value ? Math.min(dpr, FULLSCREEN_MAX_DPR) : dpr)
 }
 
+/* 移除矢量底图自带的（英文）地名标注，只保留我们自己的中文标注 */
+function stripLabels() {
+  if (!map) return
+  for (const layer of map.getStyle().layers) {
+    if (
+      layer.type === 'symbol' &&
+      layer.id !== 'zh-city-labels' &&
+      map.getLayer(layer.id)
+    ) {
+      map.removeLayer(layer.id)
+    }
+  }
+}
+
+/* 中文城市标注数据：静态城市 + 访客所在城市（若已定位） */
+function cityLabelData() {
+  const features = ZH_CITIES.map(([name, lng, lat]) => ({
+    type: 'Feature',
+    properties: { name },
+    geometry: { type: 'Point', coordinates: [lng, lat] },
+  }))
+  const v = visitor.value
+  if (v && v.lat != null) {
+    features.push({
+      type: 'Feature',
+      properties: { name: cityZhName(v.city) || '访客' },
+      geometry: { type: 'Point', coordinates: [v.lng, v.lat] },
+    })
+  }
+  return { type: 'FeatureCollection', features }
+}
+
+/* 添加中文地名图层（样式加载后调用；stripLabels 之后添加，避免被误删） */
+function addCityLabels() {
+  if (!map || map.getLayer('zh-city-labels')) return
+  if (!map.getSource('zh-cities')) {
+    map.addSource('zh-cities', {
+      type: 'geojson',
+      data: cityLabelData(),
+    })
+  }
+  map.addLayer({
+    id: 'zh-city-labels',
+    type: 'symbol',
+    source: 'zh-cities',
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 1, 10, 5, 12, 9, 14],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+      'text-anchor': 'top',
+      'text-offset': [0, 0.7],
+      'text-padding': 4,
+    },
+    paint: {
+      'text-color': resolved.value === 'dark' ? '#e5ecf6' : '#23303f',
+      'text-halo-color':
+        resolved.value === 'dark' ? 'rgba(2, 6, 23, 0.85)' : 'rgba(255, 255, 255, 0.92)',
+      'text-halo-width': 1.4,
+    },
+  })
+}
+
+/* 访客定位成功后刷新中文标注（含访客城市） */
+function updateCityLabels() {
+  if (!map) return
+  addCityLabels()
+  map.getSource('zh-cities')?.setData(cityLabelData())
+}
+
 /* ===== 标记：仅圆点，不带文字 ===== */
 function addHomeMarker() {
   const el = document.createElement('div')
@@ -475,6 +621,9 @@ onMounted(() => {
     ensureHomeMarker()
     applySky()
     applyPixelRatio()
+    /* 去掉底图英文标注，换成中文城市标注 */
+    stripLabels()
+    addCityLabels()
     /* 默认 2D 静态视图；全屏状态才启用 3D 与交互 */
     map.setProjection({ type: expanded.value ? 'globe' : 'mercator' })
     map.setPitch(expanded.value ? 32 : 0)
@@ -514,10 +663,23 @@ watch([resolved, providerIndex], () => {
       resolved.value === 'dark' ? '#8aa3ff' : '#4f6ef7'
     )
   }
+  if (map?.getLayer('zh-city-labels')) {
+    map.setPaintProperty(
+      'zh-city-labels',
+      'text-color',
+      resolved.value === 'dark' ? '#e5ecf6' : '#23303f'
+    )
+    map.setPaintProperty(
+      'zh-city-labels',
+      'text-halo-color',
+      resolved.value === 'dark' ? 'rgba(2, 6, 23, 0.85)' : 'rgba(255, 255, 255, 0.92)'
+    )
+  }
 })
 
 watch(visitor, () => {
   updateDistance()
+  updateCityLabels()
   if (!map || !map.loaded()) return
   addVisitorMarker()
   if (expanded.value) addRoute()
