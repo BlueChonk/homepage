@@ -124,20 +124,9 @@ function resolveVisitorCity(v) {
 }
 
 /* 瓦片源（多源自动切换）
-   优先使用矢量底图：3D 地球模式下矢量瓦片渲染开销远低于栅格瓦片，
-   暗色主题直接用 dark-matter 风格，无需画布反色滤镜；
-   高德栅格瓦片仅作兜底（栅格瓦片在 globe 投影下性能较差） */
+   首选高德栅格底图：中文地名最全（市区、道路、POI 等自带中文标注）；
+   高德不可用时再回退矢量底图（Carto / OpenFreeMap）。 */
 const PROVIDERS = [
-  {
-    name: 'carto',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  },
-  {
-    name: 'openfreemap',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
-  },
   {
     name: 'amap',
     style: () => ({
@@ -160,6 +149,16 @@ const PROVIDERS = [
         { id: 'amap', type: 'raster', source: 'amap' },
       ],
     }),
+  },
+  {
+    name: 'carto',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  },
+  {
+    name: 'openfreemap',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
   },
 ]
 
@@ -496,6 +495,8 @@ function cityLabelData() {
 /* 添加中文地名图层（样式加载后调用；stripLabels 之后添加，避免被误删） */
 function addCityLabels() {
   if (!map || map.getLayer('zh-city-labels')) return
+  /* 高德底图自带完整中文地名，跳过自定义标注层避免重名 */
+  if (PROVIDERS[providerIndex.value]?.name === 'amap') return
   if (!map.getSource('zh-cities')) {
     map.addSource('zh-cities', {
       type: 'geojson',
@@ -785,7 +786,8 @@ watch([resolved, providerIndex], () => {
 
 watch(visitor, () => {
   updateDistance()
-  if (!map || !map.loaded()) return
+  /* 样式就绪即可更新（无需等瓦片全部加载完，避免访客定位稍慢时被跳过） */
+  if (!map || !map.isStyleLoaded()) return
   updateCityLabels()
   addVisitorMarker()
   addRoute()
