@@ -172,6 +172,8 @@ const PROVIDERS = [
 ]
 
 const loading = ref(true)
+const locating = ref(true)
+const ready = ref(false)
 const failed = ref(false)
 const providerIndex = ref(0)
 const expanded = ref(false)
@@ -639,41 +641,69 @@ async function locateVisitor() {
         : null),
     },
   ]
-  for (const p of probes) {
-    try {
+  /* IP 接口并行请求，取第一个成功结果（避免串行等待拖慢定位） */
+  const settled = await Promise.allSettled(
+    probes.map(async (p) => {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), 6000)
-      const res = await fetch(p.url, { signal: ctrl.signal, cache: 'no-store' })
-      clearTimeout(timer)
-      if (!res.ok) continue
-      const data = p.decode ? await p.decode(res) : await res.json()
-      const v = p.parse(data)
-      if (v) {
-        visitor.value = v
-        break
+      try {
+        const res = await fetch(p.url, { signal: ctrl.signal, cache: 'no-store' })
+        if (!res.ok) return null
+        const data = p.decode ? await p.decode(res) : await res.json()
+        return p.parse(data)
+      } finally {
+        clearTimeout(timer)
       }
-    } catch {
-      /* 该接口不可用，尝试下一个 */
-    }
-  }
-  if (navigator.geolocation) {
+    })
+  )
+  const hit = settled.find((r) => r.status === 'fulfilled' && r.value)
+  if (hit) visitor.value = hit.value
+
+  /* 浏览器 GPS 精确定位：拿到坐标后清空 IP 城市名，由坐标反推，避免名称/坐标矛盾 */
+  await new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve()
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         visitor.value = {
           ...(visitor.value || {}),
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          /* GPS 坐标更精确，城市名改为由坐标反推，避免与 IP 名称矛盾 */
           city: '',
           source: 'gps',
         }
+        resolve()
       },
-      () => {
-        /* 用户拒绝或定位失败：保留 IP 定位结果 */
-      },
+      () => resolve(),
       { timeout: 8000, maximumAge: 600000 }
     )
+  })
+}
+
+/* ===== 就绪展示：骨架屏期间不显示地图内容，
+   等“定位完成 + 地图渲染完成”后才一次性展示最终正确结果 ===== */
+let revealTimer = 0
+
+function maybeReveal() {
+  if (ready.value) return
+  if (loading.value || locating.value) return
+  ready.value = true
+  if (map) {
+    if (visitor.value?.lat != null) {
+      addVisitorMarker()
+      addRoute()
+    }
+    fitBoth()
   }
+}
+
+function startRevealTimer() {
+  clearTimeout(revealTimer)
+  revealTimer = setTimeout(() => {
+    /* 兜底：最多等待 12 秒，避免网络异常时骨架屏卡死 */
+    loading.value = false
+    locating.value = false
+    maybeReveal()
+  }, 12000)
 }
 
 /* ===== 视图控制：默认与全屏均为 3D 地球，默认框住两点 ===== */
@@ -732,7 +762,6 @@ onMounted(() => {
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
   map.on('load', () => {
     clearTimeout(loadTimer)
-    loading.value = false
     tileErrors = 0
     ensureHomeMarker()
     if (visitor.value?.lat != null) addVisitorMarker()
@@ -754,6 +783,11 @@ onMounted(() => {
     if (visitor.value?.lat != null) addRoute()
     fitBoth()
   })
+  /* 瓦片全部渲染完成才算“地图渲染完成” */
+  map.on('idle', () => {
+    loading.value = false
+    maybeReveal()
+  })
   map.on('error', (e) => {
     if (failed.value) return
     const err = e?.error
@@ -765,7 +799,11 @@ onMounted(() => {
     if (err && !map.loaded() && !failed.value) tryNextProvider()
   })
   armLoadTimer()
-  locateVisitor()
+  startRevealTimer()
+  locateVisitor().then(() => {
+    locating.value = false
+    maybeReveal()
+  })
 })
 
 watch([resolved, providerIndex], () => {
@@ -807,6 +845,7 @@ watch(visitor, () => {
 
 onUnmounted(() => {
   clearTimeout(loadTimer)
+  clearTimeout(revealTimer)
   removeRoute()
   visitorMarker?.remove()
   homeMarker?.remove()
@@ -820,18 +859,24 @@ onUnmounted(() => {
   <div
     ref="container"
     class="world-map"
-    :class="{ expanded, 'dark-tiles': darkFilter }"
+    :class="{ expanded, 'dark-tiles': darkFilter, ready }"
     role="region"
     aria-label="居住地地图"
   >
-    <div v-if="loading" class="map-overlay">
-      <span class="map-loading-dot"></span>
-      <span>地图加载中…</span>
-    </div>
     <div v-if="failed" class="map-overlay">
       <div class="map-error-emoji">🗺️</div>
       <p class="map-error-main">地图暂时加载失败</p>
       <p class="map-error-hint">请检查网络后刷新页面</p>
+    </div>
+    <!-- 骨架屏：定位完成 + 地图渲染完成前不展示地图内容 -->
+    <div v-else-if="!ready" class="map-overlay">
+      <div class="skeleton-map" aria-hidden="true">
+        <span class="sk"></span>
+        <span class="sk sk-2"></span>
+        <span class="sk sk-3"></span>
+      </div>
+      <span class="map-loading-dot"></span>
+      <span class="overlay-text">{{ loading ? '地图渲染中…' : '正在定位访客位置…' }}</span>
     </div>
 
     <!-- 左下角：站主（黄点）与访客（绿点）两个城市 -->
@@ -925,6 +970,30 @@ html[data-theme="dark"] .world-map {
 @keyframes map-spin {
   to { transform: rotate(360deg); }
 }
+.skeleton-map {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(220px, 72%);
+}
+.skeleton-map .sk {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--surface-hover) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.3s ease-in-out infinite;
+  opacity: 0.65;
+}
+.skeleton-map .sk-2 { width: 78%; }
+.skeleton-map .sk-3 { width: 90%; }
+@keyframes sk-shimmer {
+  to { background-position: -200% 0; }
+}
+.overlay-text {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
 .map-error-emoji {
   font-size: 34px;
   opacity: 0.85;
@@ -937,6 +1006,13 @@ html[data-theme="dark"] .world-map {
   margin: 0;
   font-size: 12px;
   opacity: 0.75;
+}
+
+/* 骨架屏期间：隐藏地图上的浮层内容，避免展示未就绪的错误状态 */
+.world-map:not(.ready) .city-label,
+.world-map:not(.ready) .expand-fab,
+.world-map:not(.ready) .map-exit {
+  display: none;
 }
 
 /* 左下角：站主（黄点）与访客（绿点）两个城市；玻璃拟态 + 亮/暗主题自适应 */
