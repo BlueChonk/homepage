@@ -17,8 +17,8 @@ const { resolved } = useTheme()
    广西壮族自治区梧州市龙圩区龙圩镇广信路215号 */
 const HOME = {
   name: '广西梧州',
-  lng: 111.2573,
-  lat: 23.4312,
+  lng: 111.256909,
+  lat: 23.431489,
 }
 
 /* 中文地名标注：全国主要城市 + 全部足迹城市。
@@ -96,6 +96,33 @@ function cityZhName(raw) {
   return CITY_EN_ZH[s.toLowerCase().replace(/[^a-z]/g, '')] || ''
 }
 
+/* 由坐标反推最近的城市：IP 定位只给了坐标、没给城市名时使用
+   （例如访客与站主相距仅 1.3km，必然同属梧州） */
+function inferCityFromCoords(lng, lat) {
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return ''
+  let best = ''
+  let bestDist = Infinity
+  for (const [name, clng, clat] of ZH_CITIES) {
+    const d = haversineKm(lat, lng, clat, clng)
+    if (d < bestDist) {
+      bestDist = d
+      best = name
+    }
+  }
+  return bestDist <= 35 ? best : ''
+}
+
+/* 访客城市名解析：中文名 → 坐标反推最近城市 → 原始名 → 访客 */
+function resolveVisitorCity(v) {
+  if (!v) return ''
+  return (
+    cityZhName(v.city) ||
+    (v.lat != null ? inferCityFromCoords(v.lng, v.lat) : '') ||
+    (v.city ? String(v.city).trim() : '') ||
+    '访客'
+  )
+}
+
 /* 瓦片源（多源自动切换）
    优先使用矢量底图：3D 地球模式下矢量瓦片渲染开销远低于栅格瓦片，
    暗色主题直接用 dark-matter 风格，无需画布反色滤镜；
@@ -147,7 +174,7 @@ const distanceKm = ref(null)
 const visitorCityText = computed(() => {
   const v = visitor.value
   if (!v || v.lat == null) return ''
-  return cityZhName(v.city) || (v.city ? String(v.city).trim() : '') || '访客'
+  return resolveVisitorCity(v)
 })
 
 let loadTimer = 0
@@ -329,11 +356,11 @@ function removeRoute() {
 }
 
 /* ===== 虚线可见性标准 =====
-   两点在屏幕上的距离至少占地图短边的 55%，且不少于 150px，
-   不达标时自动放大视野，保证连接虚线清晰可见。 */
+   两点在屏幕上的距离至少占地图高度（上下宽度）的 55%，且不少于 150px，
+   不达标时自动放大视野（上限 zoom 17，近处访客也能拉出足够长的虚线）。 */
 const MIN_LINE_RATIO = 0.55
 const MIN_LINE_PX = 150
-const LINE_MAX_ZOOM = 10
+const LINE_MAX_ZOOM = 17
 
 /* ===== 默认视野：站主与访客两点 + 连接虚线一同可见，且虚线长度达标 ===== */
 function fitBoth() {
@@ -349,7 +376,7 @@ function fitBoth() {
     map.fitBounds(bounds, { padding: 70, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
     /* 再按虚线可见性标准调整缩放与居中 */
     const rect = map.getContainer().getBoundingClientRect()
-    const target = Math.max(Math.min(rect.width, rect.height) * MIN_LINE_RATIO, MIN_LINE_PX)
+    const target = Math.max(rect.height * MIN_LINE_RATIO, MIN_LINE_PX)
     const p1 = map.project(a)
     const p2 = map.project(b)
     const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
@@ -448,9 +475,7 @@ function cityLabelData() {
   if (v && v.lat != null) {
     features.push({
       type: 'Feature',
-      properties: {
-        name: cityZhName(v.city) || (v.city ? String(v.city).trim() : '') || '访客',
-      },
+      properties: { name: resolveVisitorCity(v) },
       geometry: { type: 'Point', coordinates: [v.lng, v.lat] },
     })
   }
@@ -676,6 +701,11 @@ onMounted(() => {
     maxTileCacheSize: 128,
   })
   if (import.meta.env.DEV) window.__globeMap = map
+  if (import.meta.env.DEV) {
+    window.__setGlobeVisitor = (v) => {
+      visitor.value = v
+    }
+  }
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
   map.on('load', () => {
     clearTimeout(loadTimer)
