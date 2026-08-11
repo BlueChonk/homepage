@@ -269,7 +269,7 @@ function greatCircle(aLat, aLng, bLat, bLng, segments = 96) {
 }
 
 /* 把大圆路径拆成一段段小线段，用几何方式实现虚线（地球投影下同样生效） */
-function dashedRoute(coords, dash = 8, gap = 8) {
+function dashedRoute(coords, dash = 7, gap = 6) {
   const segments = []
   let i = 0
   while (i < coords.length - 1) {
@@ -307,7 +307,7 @@ function addRoute() {
       },
       paint: {
         'line-color': resolved.value === 'dark' ? '#8aa3ff' : '#4f6ef7',
-        'line-width': 3.5,
+        'line-width': 4,
         'line-opacity': 1,
       },
     })
@@ -328,15 +328,40 @@ function removeRoute() {
   if (map.getSource('home-route')) map.removeSource('home-route')
 }
 
-/* ===== 默认视野：站主与访客两点在地球上一同可见 ===== */
+/* ===== 虚线可见性标准 =====
+   两点在屏幕上的距离至少占地图短边的 55%，且不少于 150px，
+   不达标时自动放大视野，保证连接虚线清晰可见。 */
+const MIN_LINE_RATIO = 0.55
+const MIN_LINE_PX = 150
+const LINE_MAX_ZOOM = 10
+
+/* ===== 默认视野：站主与访客两点 + 连接虚线一同可见，且虚线长度达标 ===== */
 function fitBoth() {
   if (!map) return
   const v = visitor.value
   if (v && v.lat != null) {
+    const a = [HOME.lng, HOME.lat]
+    const b = [v.lng, v.lat]
     const bounds = new LngLatBounds()
-    bounds.extend([HOME.lng, HOME.lat])
-    bounds.extend([v.lng, v.lat])
-    map.fitBounds(bounds, { padding: 80, maxZoom: 6, minZoom: 2, duration: 1800 })
+    bounds.extend(a)
+    bounds.extend(b)
+    /* 先保证两点都可见（无动画基准） */
+    map.fitBounds(bounds, { padding: 70, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
+    /* 再按虚线可见性标准调整缩放与居中 */
+    const rect = map.getContainer().getBoundingClientRect()
+    const target = Math.max(Math.min(rect.width, rect.height) * MIN_LINE_RATIO, MIN_LINE_PX)
+    const p1 = map.project(a)
+    const p2 = map.project(b)
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+    let zoom = map.getZoom()
+    if (dist < target && zoom < LINE_MAX_ZOOM) {
+      zoom = Math.min(LINE_MAX_ZOOM, zoom + Math.log2(target / Math.max(dist, 1)))
+    }
+    map.easeTo({
+      center: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
+      zoom,
+      duration: 1500,
+    })
   } else {
     map.flyTo({
       center: [HOME.lng, HOME.lat],
