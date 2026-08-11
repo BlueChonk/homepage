@@ -1,0 +1,273 @@
+:root {
+  /* ===== 简约 · 亮色主题 ===== */
+  color-scheme: light;
+  --bg: #f7f7f8;
+  --bg-soft: #f1f2f4;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --text: #1f2328;
+  --text-secondary: #59636e;
+  --text-tertiary: #8b949e;
+  --border: #d8dee4;
+  --border-light: #e6e9ed;
+  --accent: #4f6ef7;
+  --accent-strong: #3b5bdb;
+  --accent-soft: rgba(79, 110, 247, 0.12);
+  --accent-border: rgba(79, 110, 247, 0.35);
+  --muted: #8b949e;
+  --subtle: rgba(31, 35, 40, 0.06);
+  --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.06);
+  --shadow-md: 0 8px 24px rgba(31, 35, 40, 0.10);
+  --shadow-lg: 0 24px 60px rgba(31, 35, 40, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --record-max: 820px;
+  /* 页面背景：顶部一层极淡的蓝紫光晕，其余为干净浅灰 */
+  --bg-glow: rgba(79, 110, 247, 0.05);
+  --bg-gradient: radial-gradient(1100px 520px at 50% -12%, var(--bg-glow) 0%, transparent 62%);
+  /* Markdown 代码块 */
+  --md-code-bg: #f6f8fa;
+  --md-code-fg: #24292f;
+  --md-code-border: var(--border);
+  --md-code-header-bg: #eef1f4;
+  --md-inline-code-bg: rgba(79, 110, 247, 0.09);
+  --md-inline-code-fg: #4558b8;
+}
+
+html[data-theme="dark"] {
+  /* ===== 简约 · 暗色主题 ===== */
+  color-scheme: dark;
+  --bg: #101114;
+  --bg-soft: #17191d;
+  --surface: #1b1e24;
+  --surface-hover: #262a32;
+  --text: #e6e9ee;
+  --text-secondary: #a6adbb;
+  --text-tertiary: #6e7686;
+  --border: #333945;
+  --border-light: #292e37;
+  --accent: #8fa6ff;
+  --accent-strong: #b0c0ff;
+  --accent-soft: rgba(143, 166, 255, 0.14);
+  --accent-border: rgba(143, 166, 255, 0.4);
+  --muted: #6e7686;
+  --subtle: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --bg-glow: rgba(79, 110, 247, 0.07);
+  --md-code-bg: #0d1117;
+  --md-code-fg: #e6edf3;
+  --md-code-border: #30363d;
+  --md-code-header-bg: #161b22;
+  --md-inline-code-bg: rgba(143, 166, 255, 0.13);
+  --md-inline-code-fg: #b8c7ff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+html {
+  /* 移动端动态工具栏（Safari/Chrome）下避免底部被遮挡 */
+  height: 100%;
+}
+body {
+  overflow-x: hidden;
+  /* 禁止移动端点击高亮与双击缩放误触 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 内容区/导航栏统一背景：浅色为极淡蓝紫光晕，暗色自动跟随 */
+.app-body.scrollable,
+.topnav,
+.records,
+.home-page,
+.album-page,
+.view,
+.about-page {
+  background: var(--bg-gradient), var(--bg);
+  background-attachment: fixed;
+}
+
+@media (max-width: 768px) {
+  /* 移动端固定背景会导致 iOS Safari 滚动卡顿，改为随内容滚动 */
+  .app-body.scrollable,
+  .topnav,
+  .records,
+  .home-page,
+  .album-page,
+  .view,
+  .about-page {
+    background-attachment: scroll;
+  }
+}
+
+/* ===== 全局美化的自定义滚动条（替换浏览器原生） ===== */
+* {
+  scrollbar-width: thin;                       /* Firefox */
+  scrollbar-color: var(--text-tertiary) transparent; /* Firefox: 滑块 / 轨道 */
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-strong);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Ant Design Vue overrides for the pure theme */
+.ant-layout {
+  background: var(--bg);
+}
+
+.ant-layout-sider {
+  background: var(--surface);
+}
+
+.ant-layout-header {
+  background: var(--bg);
+  line-height: 1;
+  padding: 0;
+  height: auto;
+}
+
+.ant-btn-link {
+  color: var(--text-secondary);
+}
+
+.ant-btn-link:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.ant-select-dropdown.mode-dropdown {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== 顶部主题切换按钮与下拉 ===== */
+.theme-switcher {
+  position: relative;
+  display: inline-flex;
+}
+.theme-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.theme-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.theme-btn:active {
+  transform: scale(0.94);
+}
+.theme-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.theme-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 148px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.theme-option svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+.theme-option:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.theme-option.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* 主题下拉过渡动画 */
+.theme-drop-enter-active,
+.theme-drop-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  transform-origin: top right;
+}
+.theme-drop-enter-from,
+.theme-drop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

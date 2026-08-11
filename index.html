@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Cecilia 的个人主页 - 技术二次元宅的自留地" />
+    <title>Cecilia's Home</title>
+    <script>
+      // 首帧前应用主题，避免暗色用户看到白色闪烁
+      ;(function () {
+        try {
+          var KEY = 'cecilia-theme-mode'
+          var mode = localStorage.getItem(KEY)
+          if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'system'
+          var dark = mode === 'dark'
+          if (mode === 'system') dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var root = document.documentElement
+          root.dataset.theme = dark ? 'dark' : 'light'
+          if (dark) root.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+    <!-- 本地资源，避免外链失效导致图标丢失 -->
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
