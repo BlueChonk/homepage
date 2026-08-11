@@ -356,10 +356,11 @@ function removeRoute() {
 }
 
 /* ===== 虚线可见性标准 =====
-   两点在屏幕上的距离至少占地图高度（上下宽度）的 55%，且不少于 150px，
-   不达标时自动放大视野（上限 zoom 17，近处访客也能拉出足够长的虚线）。 */
-const MIN_LINE_RATIO = 0.55
-const MIN_LINE_PX = 150
+   两点在屏幕上的距离至少占地图高度（上下宽度）的 30%，
+   并且两个点必须完整显示在地图框内（留边距），
+   不达标时自动放大视野（上限 zoom 17）。 */
+const MIN_LINE_RATIO = 0.3
+const LINE_MARGIN = 56
 const LINE_MAX_ZOOM = 17
 
 /* ===== 默认视野：站主与访客两点 + 连接虚线一同可见，且虚线长度达标 ===== */
@@ -372,17 +373,27 @@ function fitBoth() {
     const bounds = new LngLatBounds()
     bounds.extend(a)
     bounds.extend(b)
-    /* 先保证两点都可见（无动画基准） */
-    map.fitBounds(bounds, { padding: 70, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
-    /* 再按虚线可见性标准调整缩放与居中 */
+    /* 先保证两点都可见（无动画基准，留边距） */
+    map.fitBounds(bounds, { padding: LINE_MARGIN, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
+    /* 再按虚线可见性标准放大；放大后仍保证两点在框内 */
     const rect = map.getContainer().getBoundingClientRect()
-    const target = Math.max(rect.height * MIN_LINE_RATIO, MIN_LINE_PX)
+    const target = rect.height * MIN_LINE_RATIO
     const p1 = map.project(a)
     const p2 = map.project(b)
     const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
     let zoom = map.getZoom()
     if (dist < target && zoom < LINE_MAX_ZOOM) {
-      zoom = Math.min(LINE_MAX_ZOOM, zoom + Math.log2(target / Math.max(dist, 1)))
+      /* 达到虚线标准的缩放 */
+      const spanZoom = Math.min(LINE_MAX_ZOOM, zoom + Math.log2(target / Math.max(dist, 1)))
+      /* 两点包围盒装进可视区域（留边距）所允许的最大缩放 */
+      const bboxW = Math.abs(p2.x - p1.x)
+      const bboxH = Math.abs(p2.y - p1.y)
+      const fitW = Math.max(rect.width - LINE_MARGIN * 2, 1)
+      const fitH = Math.max(rect.height - LINE_MARGIN * 2, 1)
+      let fitZoom = LINE_MAX_ZOOM
+      if (bboxW > 0) fitZoom = Math.min(fitZoom, zoom + Math.log2(fitW / bboxW))
+      if (bboxH > 0) fitZoom = Math.min(fitZoom, zoom + Math.log2(fitH / bboxH))
+      zoom = Math.min(spanZoom, fitZoom)
     }
     map.easeTo({
       center: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
