@@ -8,8 +8,20 @@ import '../utils/maplibreWorker'
 
 const { resolved } = useTheme()
 
-/* 瓦片源（多源自动切换：国内优先，避免单一源访问受限导致黑屏） */
+/* 瓦片源（多源自动切换）
+   优先使用矢量底图：加载后可移除所有地名标注，呈现干净的“点亮城市”效果；
+   高德栅格瓦片仅作兜底（其地名已烘焙进图片，无法单独移除） */
 const PROVIDERS = [
+  {
+    name: 'carto',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  },
+  {
+    name: 'openfreemap',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
+  },
   {
     name: 'amap',
     style: () => ({
@@ -32,16 +44,6 @@ const PROVIDERS = [
         { id: 'amap', type: 'raster', source: 'amap' },
       ],
     }),
-  },
-  {
-    name: 'carto',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  },
-  {
-    name: 'openfreemap',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
   },
 ]
 
@@ -177,6 +179,40 @@ function addAreas(features) {
   })
 }
 
+/* 移除底图自带的地名标注图层（矢量底图可用；高德栅格兜底时无此图层） */
+function stripLabels() {
+  if (!map) return
+  for (const layer of map.getStyle().layers) {
+    if (layer.type === 'symbol' && map.getLayer(layer.id)) {
+      map.removeLayer(layer.id)
+    }
+  }
+}
+
+/* 城市边界只拉取一次，主题切换 / 换底图后复用 */
+let featuresPromise = null
+
+function getFootprintFeatures() {
+  if (!featuresPromise) {
+    featuresPromise = (async () => {
+      let features = await fetchRealFeatures()
+      if (!features) features = circleFeatures()
+      return features
+    })()
+  }
+  return featuresPromise
+}
+
+/* 样式加载（含换底图 / 主题切换）后重新铺上染色与城市标记 */
+async function applyFootprints() {
+  if (!map) return
+  stripLabels()
+  const features = await getFootprintFeatures()
+  addAreas(features)
+  addLabels()
+  fitFootprints()
+}
+
 /* 自动框住所有足迹城市 */
 function fitFootprints() {
   if (!map || !FOOTPRINTS.length) return
@@ -185,14 +221,19 @@ function fitFootprints() {
   map.fitBounds(bounds, { padding: 64, duration: 0, maxZoom: 7 })
 }
 
-/* 在每个色块中心显示城市名，让到访记录清晰可见 */
+/* 点 + 图：城市中心一个橙色圆点，旁边标注城市名；区域由填充色块表示 */
 function addLabels() {
   if (!map || labelsAdded) return
   labelsAdded = true
   for (const f of FOOTPRINTS) {
     const el = document.createElement('div')
     el.className = 'footprint-label'
-    el.textContent = f.name
+    const dot = document.createElement('span')
+    dot.className = 'fp-dot'
+    const name = document.createElement('span')
+    name.className = 'fp-name'
+    name.textContent = f.name
+    el.append(dot, name)
     const mk = new Marker({ element: el, anchor: 'center' })
       .setLngLat([f.lng, f.lat])
       .addTo(map)
@@ -212,15 +253,12 @@ onMounted(() => {
   })
   if (import.meta.env.DEV) window.__fpMap = map
   map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
-  map.on('load', async () => {
+  map.on('style.load', applyFootprints)
+  map.on('load', () => {
     clearTimeout(loadTimer)
     loading.value = false
     tileErrors = 0
-    let features = await fetchRealFeatures()
-    if (!features) features = circleFeatures()
-    addAreas(features)
-    addLabels()
-    fitFootprints()
+    applyFootprints()
   })
   map.on('error', (e) => {
     if (failed.value) return
@@ -330,19 +368,36 @@ onUnmounted(() => {
   opacity: 0.75;
 }
 
-/* 色块上的城市名标签 */
+/* 点 + 图：城市中心圆点 + 城市名 */
 .footprints-map :deep(.footprint-label) {
-  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px 4px 8px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--accent-strong);
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   white-space: nowrap;
   pointer-events: none;
+}
+.footprints-map :deep(.fp-dot) {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: #ff9f1a;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(255, 159, 26, 0.35);
+}
+.footprints-map :deep(.fp-name) {
+  line-height: 1;
 }
 
 .footprints-map :deep(.maplibregl-ctrl-attrib) {
