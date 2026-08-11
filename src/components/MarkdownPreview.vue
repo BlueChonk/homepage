@@ -182,6 +182,33 @@ function decorateCodeBlocks() {
 
     pre.appendChild(header)
     pre.appendChild(scroll)
+
+    /* 折叠：代码/命令行行数较多时默认收起，支持展开/收起 */
+    const lineCount = codeText ? codeText.split('\n').length : 0
+    if (lineCount > 8) {
+      const foldBtn = document.createElement('button')
+      foldBtn.type = 'button'
+      foldBtn.className = 'shiki-fold'
+      foldBtn.setAttribute('aria-label', '展开代码')
+      foldBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+          <path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/>
+        </svg>
+        <span class="shiki-fold-text">展开全部</span>
+        <span class="shiki-fold-count">${lineCount} 行</span>
+      `
+      const applyFold = (collapsed) => {
+        pre.classList.toggle('collapsed', collapsed)
+        scroll.classList.toggle('is-collapsed', collapsed)
+        scroll.style.maxHeight = collapsed ? '160px' : ''
+        scroll.style.overflow = collapsed ? 'hidden' : ''
+        foldBtn.querySelector('.shiki-fold-text').textContent = collapsed ? '展开全部' : '收起'
+        foldBtn.setAttribute('aria-label', collapsed ? '展开代码' : '收起代码')
+      }
+      foldBtn.addEventListener('click', () => applyFold(!pre.classList.contains('collapsed')))
+      applyFold(true)
+      pre.appendChild(foldBtn)
+    }
   })
 }
 
@@ -218,3 +245,45 @@ const rootClass = computed(() =>
     <div ref="mdRef" class="md-render-inner" v-html="html"></div>
   </div>
 </template>
+
+<style scoped>
+/* ===== 长代码块折叠 ===== */
+.md-render-inner :deep(.shiki-fold) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 14px;
+  border: none;
+  border-top: 1px solid var(--md-code-border, var(--border));
+  background: color-mix(in srgb, var(--md-code-header-bg, var(--bg-soft)) 82%, transparent);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.md-render-inner :deep(.shiki-fold:hover) {
+  color: var(--accent);
+  background: var(--surface-hover);
+}
+.md-render-inner :deep(.shiki-fold svg) {
+  transition: transform 0.2s ease;
+}
+.md-render-inner :deep(pre.shiki:not(.collapsed) .shiki-fold svg) {
+  transform: rotate(180deg);
+}
+.md-render-inner :deep(.shiki-fold-count) {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+/* 收起状态：底部渐隐 */
+.md-render-inner :deep(.shiki-scroll.is-collapsed) {
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+</style>

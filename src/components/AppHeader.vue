@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { Menu } from 'ant-design-vue'
 import { usePlayer } from '../composables/usePlayer'
 import { useTheme } from '../composables/useTheme'
@@ -19,6 +19,51 @@ const items = [
 const { currentTrack, playing, volume, toggle, next, seek, setVolume, load, onProgress } = usePlayer()
 const navBarFillEl = ref(null)
 let unsubMiniProgress = null
+
+const navWrapRef = ref(null)
+const navMiniRef = ref(null)
+const miniLevel = ref(0)
+/* 展开状态下迷你播放器的完整宽度（用于稳定计算重叠量，避免收缩后宽度变化引发来回抖动） */
+let fullMiniWidth = 0
+
+/* 检测迷你播放器与导航菜单的水平重叠，按程度渐进收缩：
+   一重叠即收起歌曲标题，重叠加深再依次收起进度条、下一首 */
+function updateMiniCompact() {
+  const wrap = navWrapRef.value
+  const mini = navMiniRef.value
+  if (!wrap || !mini || !currentTrack.value) {
+    miniLevel.value = 0
+    return
+  }
+  const menu = wrap.querySelector('.nav-menu') || wrap
+  const m = menu.getBoundingClientRect()
+  const p = mini.getBoundingClientRect()
+  if (miniLevel.value === 0) fullMiniWidth = p.width
+  const effectiveLeft = p.right - (fullMiniWidth || p.width)
+  const overlap = m.right - effectiveLeft
+  if (overlap <= 0) {
+    miniLevel.value = 0
+    return
+  }
+  const ratio = overlap / (m.width || 1)
+  miniLevel.value = ratio >= 0.45 ? 3 : ratio >= 0.2 ? 2 : 1
+}
+
+watchEffect((onCleanup) => {
+  const wrap = navWrapRef.value
+  const mini = navMiniRef.value
+  if (!wrap || !mini) return
+  updateMiniCompact()
+  const ro = new ResizeObserver(updateMiniCompact)
+  ro.observe(wrap)
+  ro.observe(mini)
+  window.addEventListener('resize', updateMiniCompact)
+  onCleanup(() => {
+    ro.disconnect()
+    window.removeEventListener('resize', updateMiniCompact)
+  })
+})
+
 onMounted(() => {
   load()
   unsubMiniProgress = onProgress((pct) => {
@@ -124,7 +169,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 中间导航：绝对居中，不与左右两侧内容互相挤压 -->
-    <div class="nav-wrap">
+    <div ref="navWrapRef" class="nav-wrap">
       <Menu
         mode="horizontal"
         :selected-keys="[active === 'home' ? '' : active]"
@@ -136,7 +181,12 @@ onUnmounted(() => {
 
     <!-- 右侧：迷你播放器（最右）+ 主题切换 -->
     <div class="nav-right">
-      <div v-if="currentTrack" class="nav-mini" :class="{ playing }">
+      <div
+        v-if="currentTrack"
+        ref="navMiniRef"
+        class="nav-mini"
+        :class="[{ playing }, miniLevel > 0 ? 'mini-l' + miniLevel : '']"
+      >
         <button class="nav-mini-disc" :class="{ spinning: playing }" :title="currentTrack.title" @click="toggle">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
@@ -623,12 +673,35 @@ onUnmounted(() => {
 @media (max-width: 1280px) {
   .nav-wrap { max-width: calc(100vw - 420px); }
 }
-@media (max-width: 1120px) {
-  .nav-mini-title,
-  .nav-mini-bar { display: none; }
+/* 与导航菜单重叠时渐进收缩：先收标题，再收进度条，最后收下一首 */
+.nav-mini-title,
+.nav-mini-bar,
+.nav-mini-next {
+  transition: opacity 0.22s ease, max-width 0.22s ease, width 0.22s ease, margin 0.22s ease, padding 0.22s ease;
 }
-@media (max-width: 940px) {
-  .nav-mini-next { display: none; }
+.nav-mini.mini-l1 .nav-mini-title,
+.nav-mini.mini-l2 .nav-mini-title,
+.nav-mini.mini-l3 .nav-mini-title {
+  opacity: 0;
+  max-width: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+.nav-mini.mini-l2 .nav-mini-bar,
+.nav-mini.mini-l3 .nav-mini-bar {
+  opacity: 0;
+  max-width: 0;
+  margin: 0;
+}
+.nav-mini.mini-l3 .nav-mini-next {
+  opacity: 0;
+  width: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  overflow: hidden;
+  pointer-events: none;
 }
 @media (max-width: 760px) {
   .nav-mini { padding: 4px 6px 4px 4px; }

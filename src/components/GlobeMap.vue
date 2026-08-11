@@ -21,8 +21,21 @@ const HOME = {
   lat: 23.4312,
 }
 
-/* 瓦片源（多源自动切换：国内优先，避免单一源访问受限导致黑屏） */
+/* 瓦片源（多源自动切换）
+   优先使用矢量底图：3D 地球模式下矢量瓦片渲染开销远低于栅格瓦片，
+   暗色主题直接用 dark-matter 风格，无需画布反色滤镜；
+   高德栅格瓦片仅作兜底（栅格瓦片在 globe 投影下性能较差） */
 const PROVIDERS = [
+  {
+    name: 'carto',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  },
+  {
+    name: 'openfreemap',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
+  },
   {
     name: 'amap',
     style: () => ({
@@ -37,6 +50,7 @@ const PROVIDERS = [
             'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
           ],
           tileSize: 256,
+          maxzoom: 18,
           attribution: '© 高德地图',
         },
       },
@@ -44,16 +58,6 @@ const PROVIDERS = [
         { id: 'amap', type: 'raster', source: 'amap' },
       ],
     }),
-  },
-  {
-    name: 'carto',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  },
-  {
-    name: 'openfreemap',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
   },
 ]
 
@@ -302,6 +306,16 @@ function removeNavControl() {
   }
 }
 
+/* ===== 全屏渲染分辨率：高 DPI 屏幕（2x/3x）全屏地球像素量巨大，
+   限制到 1.5x 可显著降低 GPU 负担，视觉几乎无差别 ===== */
+const FULLSCREEN_MAX_DPR = 1.5
+
+function applyPixelRatio() {
+  if (!map) return
+  const dpr = window.devicePixelRatio || 1
+  map.setPixelRatio(expanded.value ? Math.min(dpr, FULLSCREEN_MAX_DPR) : dpr)
+}
+
 /* ===== 标记：仅圆点，不带文字 ===== */
 function addHomeMarker() {
   const el = document.createElement('div')
@@ -408,7 +422,7 @@ async function locateVisitor() {
 async function toggleExpand() {
   expanded.value = !expanded.value
   await nextTick()
-  map?.resize()
+  applyPixelRatio()
   if (expanded.value) {
     /* 进入全屏：3D 地球 + 可交互 + 虚线连线与距离 */
     setInteractions(true)
@@ -452,12 +466,15 @@ onMounted(() => {
   })
   if (import.meta.env.DEV) window.__globeMap = map
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
+  /* 限制瓦片缓存大小，避免 globe 模式旋转时内存无限膨胀 */
+  map.maxTileCacheSize(128)
   map.on('load', () => {
     clearTimeout(loadTimer)
     loading.value = false
     tileErrors = 0
     ensureHomeMarker()
     applySky()
+    applyPixelRatio()
     /* 默认 2D 静态视图；全屏状态才启用 3D 与交互 */
     map.setProjection({ type: expanded.value ? 'globe' : 'mercator' })
     map.setPitch(expanded.value ? 32 : 0)

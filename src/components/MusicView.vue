@@ -866,8 +866,8 @@ html[data-theme="dark"] .stage-overlay {
   display: flex;
   justify-content: flex-end;
   background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  /* 不使用 backdrop-filter：全屏蒙层带模糊会在滑入/滑出动画中逐帧重采样背景，
+     是播放列表打开/关闭卡顿的主因；纯色半透明叠加视觉相近且仅为合成层操作 */
 }
 .playlist-drawer {
   display: flex;
@@ -934,6 +934,7 @@ html[data-theme="dark"] .stage-overlay {
 .drawer-enter-active,
 .drawer-leave-active {
   transition: transform 0.28s ease, opacity 0.28s ease;
+  will-change: transform, opacity;
 }
 .drawer-enter-from,
 .drawer-leave-to {
@@ -975,9 +976,8 @@ html[data-theme="dark"] .stage-overlay {
   cursor: pointer;
   border-radius: 10px;
   margin-bottom: 6px;
-  background: color-mix(in srgb, var(--surface) 46%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* 提高底色不透明度代替逐项模糊：抽屉滑动时不再逐项重采样，背景观感基本不变 */
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   transition: background 0.15s ease, border-color 0.15s ease;
 }

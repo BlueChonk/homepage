@@ -1,5 +1,5 @@
 <script setup>
-import { ref, h, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, h, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import MarkdownPreview from './MarkdownPreview.vue'
 import PhoebePoke from './PhoebePoke.vue'
 import CialloGreet from './CialloGreet.vue'
@@ -47,10 +47,10 @@ onUnmounted(() => clearTimeout(timer))
 
 const hobbies = []
 
-/* 我的日志模块：极简风格（log-minimal 风格），仅记日期，点击 HIDE/SHOW 显隐 */
-const logHidden = ref(true)
-function toggleLog() {
-  logHidden.value = !logHidden.value
+/* 我的日志模块：默认只显示最近 2 条，可切换为显示全部 */
+const showAllLogs = ref(false)
+function toggleLogMode() {
+  showAllLogs.value = !showAllLogs.value
 }
 
 /* 我的日志模块：数据来自 public/daily-log.md，运行时读取。
@@ -58,12 +58,23 @@ function toggleLog() {
    新增/修改日志只需编辑该 md 文件，无需改动组件或重新构建。 */
 const myLogs = ref([])
 const logLoading = ref(true)
+const visibleLogs = computed(() =>
+  showAllLogs.value ? myLogs.value : myLogs.value.slice(0, 2)
+)
+
+/* 日志按日期排序：新日期在前（“最近两条”以时间排序为准） */
+function dateKey(date) {
+  const m = String(date || '').match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : ''
+}
 
 onMounted(async () => {
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}daily-log.md`, { cache: 'no-cache' })
     const md = await res.text()
-    myLogs.value = parseDailyLog(md)
+    myLogs.value = parseDailyLog(md).sort((a, b) =>
+      dateKey(b.date).localeCompare(dateKey(a.date))
+    )
   } catch (e) {
     console.error('读取 daily-log.md 失败：', e)
     myLogs.value = []
@@ -155,12 +166,12 @@ onUnmounted(() => {})
           Daily Log
           <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
         </h2>
-        <button class="my-log-toggle" type="button" @click="toggleLog">
-          {{ logHidden ? 'SHOW' : 'HIDE' }}
+        <button class="my-log-toggle" type="button" @click="toggleLogMode">
+          {{ showAllLogs ? 'RECENT 2' : 'ALL' }}
         </button>
       </div>
-      <ul v-show="!logHidden" class="my-log-list">
-        <li v-for="(log, i) in myLogs" :key="i" class="my-log-item">
+      <ul class="my-log-list">
+        <li v-for="(log, i) in visibleLogs" :key="i" class="my-log-item">
           <span class="my-log-time">{{ log.date }}</span>
           <span class="my-log-dash" aria-hidden="true">──</span>
           <div class="my-log-body">
@@ -171,7 +182,7 @@ onUnmounted(() => {})
           暂无日志
         </li>
       </ul>
-      <p v-show="!logHidden && logLoading" class="my-log-loading">加载中…</p>
+      <p v-show="logLoading" class="my-log-loading">加载中…</p>
     </section>
 
     <!-- 3D 地球 + 居住地：独立模块，位于 Daily Log 与 Footprints 之间 -->

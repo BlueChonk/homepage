@@ -637,6 +637,33 @@ onUnmounted(() => {
   overflow-y: auto;
   box-shadow: var(--shadow-sm);
 }
+/* 目录滚动条与全站设计一致（渐变细条） */
+.toc-sidebar,
+.toc-nav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.toc-sidebar::-webkit-scrollbar,
+.toc-nav::-webkit-scrollbar {
+  width: 8px;
+}
+.toc-sidebar::-webkit-scrollbar-track,
+.toc-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toc-sidebar::-webkit-scrollbar-thumb,
+.toc-nav::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.toc-sidebar::-webkit-scrollbar-thumb:hover,
+.toc-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-strong);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
 .toc-toggle {
   display: flex;
   align-items: center;
