@@ -622,12 +622,11 @@ async function toggleExpand() {
       map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1800 })
     }
   } else {
-    /* 退出全屏：恢复 2D 静态视图，只保留两点 */
+    /* 退出全屏：恢复 2D 静态视图，仍保留两点与连接虚线 */
     removeNavControl()
     setInteractions(false)
     map?.setProjection({ type: 'mercator' })
     map?.setPitch(0)
-    removeRoute()
     if (visitor.value?.lat != null) {
       addVisitorMarker()
       fitBoth()
@@ -670,10 +669,11 @@ onMounted(() => {
     setInteractions(expanded.value)
     if (expanded.value) {
       addNavControl()
-      if (visitor.value?.lat != null) addRoute()
     } else {
       removeNavControl()
     }
+    /* 默认视图同样显示两个点 + 连接虚线 */
+    if (visitor.value?.lat != null) addRoute()
     fitBoth()
   })
   map.on('error', (e) => {
@@ -722,7 +722,7 @@ watch(visitor, () => {
   if (!map || !map.loaded()) return
   updateCityLabels()
   addVisitorMarker()
-  if (expanded.value) addRoute()
+  addRoute()
   fitBoth()
 })
 
@@ -900,17 +900,14 @@ html[data-theme="dark"] .world-map {
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
 }
 .city-label-text {
-  font-size: clamp(20px, 2.4vw, 28px);
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: clamp(17px, 2.2vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   line-height: 1;
   color: var(--text);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .city-label-text.visitor-text {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
   color: var(--text-secondary);
   text-shadow: none;
 }
