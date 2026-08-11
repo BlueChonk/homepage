@@ -143,6 +143,13 @@ const expanded = ref(false)
 const visitor = ref(null)
 const distanceKm = ref(null)
 
+/* 左下角访客地名：定位成功显示中文城市名，未定位时提示定位中 */
+const visitorCityText = computed(() => {
+  const v = visitor.value
+  if (!v || v.lat == null) return ''
+  return cityZhName(v.city) || '访客'
+})
+
 let loadTimer = 0
 let tileErrors = 0
 let map = null
@@ -619,6 +626,7 @@ onMounted(() => {
     loading.value = false
     tileErrors = 0
     ensureHomeMarker()
+    if (visitor.value?.lat != null) addVisitorMarker()
     applySky()
     applyPixelRatio()
     /* 去掉底图英文标注，换成中文城市标注 */
@@ -679,8 +687,8 @@ watch([resolved, providerIndex], () => {
 
 watch(visitor, () => {
   updateDistance()
-  updateCityLabels()
   if (!map || !map.loaded()) return
+  updateCityLabels()
   addVisitorMarker()
   if (expanded.value) addRoute()
   fitBoth()
@@ -715,10 +723,16 @@ onUnmounted(() => {
       <p class="map-error-hint">请检查网络后刷新页面</p>
     </div>
 
-    <!-- 左下角：居住城市大字（亮/暗主题自适应） -->
+    <!-- 左下角：站主（黄点）与访客（绿点）两个城市 -->
     <div class="city-label" aria-hidden="true">
-      <span class="city-label-dot"></span>
-      <span class="city-label-text">广西梧州</span>
+      <div class="city-label-row">
+        <span class="city-label-dot home"></span>
+        <span class="city-label-text">广西梧州</span>
+      </div>
+      <div class="city-label-row">
+        <span class="city-label-dot visitor"></span>
+        <span class="city-label-text visitor-text">{{ visitorCityText || '访客 · 定位中…' }}</span>
+      </div>
     </div>
 
     <!-- 默认：右下角仅一个全屏按钮；全屏：仅一个缩小按钮 -->
@@ -814,16 +828,16 @@ html[data-theme="dark"] .world-map {
   opacity: 0.75;
 }
 
-/* 左下角居住城市大字：玻璃拟态 + 亮/暗主题自适应 */
+/* 左下角：站主（黄点）与访客（绿点）两个城市；玻璃拟态 + 亮/暗主题自适应 */
 .city-label {
   position: absolute;
   left: 16px;
   bottom: 46px;
   z-index: 10;
   display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 10px 20px 10px 15px;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 20px 12px 16px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--surface) 58%, transparent);
   backdrop-filter: blur(12px);
@@ -834,21 +848,39 @@ html[data-theme="dark"] .world-map {
   user-select: none;
   -webkit-user-select: none;
 }
+.city-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .city-label-dot {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+}
+.city-label-dot.home {
   background: linear-gradient(135deg, #fbbf24, #f97316);
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.85);
 }
+.city-label-dot.visitor {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+}
 .city-label-text {
-  font-size: clamp(22px, 2.8vw, 32px);
+  font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   line-height: 1;
   color: var(--text);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.city-label-text.visitor-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  text-shadow: none;
 }
 html[data-theme="dark"] .city-label {
   background: color-mix(in srgb, #0b1224 58%, transparent);
@@ -860,6 +892,10 @@ html[data-theme="dark"] .city-label-text {
   text-shadow:
     0 2px 14px rgba(79, 110, 247, 0.6),
     0 0 28px rgba(79, 110, 247, 0.28);
+}
+html[data-theme="dark"] .city-label-text.visitor-text {
+  color: #a7f3d0;
+  text-shadow: 0 0 14px rgba(34, 197, 94, 0.45);
 }
 
 /* 右下角全屏按钮（默认视图） */
