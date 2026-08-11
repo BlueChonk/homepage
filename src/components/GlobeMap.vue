@@ -366,10 +366,11 @@ function removeRoute() {
 }
 
 /* ===== 虚线可见性标准 =====
-   两点在屏幕上的距离至少占地图高度（上下宽度）的 30%，
+   两点在屏幕上的距离占地图外框高度（上下宽度）的 50%～65%（超出 65% 则缩小），
    并且“两个点 + 整条虚线”必须完整显示在地图框内（留边距），
-   不满足就迭代缩放（近处细化放大、远处缩小），直到全部出现（上限 zoom 17）。 */
-const MIN_LINE_RATIO = 0.3
+   不满足就迭代缩放（太短放大、太长缩小），直到达标（上限 zoom 17）。 */
+const LINE_RATIO_MIN = 0.5
+const LINE_RATIO_MAX = 0.65
 const CAMERA_MARGIN = 56
 const LINE_MAX_ZOOM = 17
 const CAMERA_MAX_ITER = 8
@@ -390,7 +391,8 @@ function labelZone(rect) {
 function settleCamera(routeCoords) {
   if (!map || !routeCoords?.length) return
   const rect = map.getContainer().getBoundingClientRect()
-  const target = rect.height * MIN_LINE_RATIO
+  const targetMin = rect.height * LINE_RATIO_MIN
+  const targetMax = rect.height * LINE_RATIO_MAX
   const fitW = Math.max(rect.width - CAMERA_MARGIN * 2, 1)
   const fitH = Math.max(rect.height - CAMERA_MARGIN * 2, 1)
   const zone = labelZone(rect)
@@ -409,7 +411,7 @@ function settleCamera(routeCoords) {
     const pN = pts[pts.length - 1]
     const dist = Math.hypot(pN.x - p0.x, pN.y - p0.y)
     const bboxFits = bboxW <= fitW && bboxH <= fitH
-    const spanOk = dist >= target
+    const spanOk = dist >= targetMin && dist <= targetMax
     /* 与左下角标签面板重叠则平移避开 */
     let dx = 0
     let dy = 0
@@ -424,8 +426,9 @@ function settleCamera(routeCoords) {
     }
     if (bboxFits && spanOk && zoneClear) break
     let dz = 0
-    /* 虚线太短 → 放大细化 */
-    if (dist < target) dz = Math.log2(target / Math.max(dist, 1))
+    /* 虚线太短 → 放大细化；超过外框 15% → 缩小控制 */
+    if (dist < targetMin) dz = Math.log2(targetMin / Math.max(dist, 1))
+    else if (dist > targetMax) dz = Math.log2(targetMax / dist)
     /* 有内容超出框外 → 缩小，保证全部可见（优先于长度标准） */
     if (!bboxFits) {
       const dzOutW = bboxW > fitW ? Math.log2(fitW / bboxW) : 0
