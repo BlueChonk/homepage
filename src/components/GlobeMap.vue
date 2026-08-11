@@ -9,6 +9,7 @@ import {
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
+import '../utils/maplibreWorker'
 
 const { resolved } = useTheme()
 

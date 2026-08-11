@@ -4,6 +4,7 @@ import { Map as MaplibreMap, Marker, AttributionControl, LngLatBounds } from 'ma
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
 import { FOOTPRINTS } from '../data/footprints'
+import '../utils/maplibreWorker'
 
 const { resolved } = useTheme()
 

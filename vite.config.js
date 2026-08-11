@@ -57,6 +57,12 @@ function manifestPlugin({ dir, outFile = 'manifest.jsonl', urlBase, test, titleO
 }
 
 export default defineConfig({
+  optimizeDeps: {
+    // maplibre-gl 通过 new URL(..., import.meta.url) 引用其 worker，
+    // 预打包时该 worker 不会被生成，导致矢量图层（如足迹染色）无法渲染。
+    // 排除预打包，让 Vite 直接以 ESM 方式提供，worker 可正确解析。
+    exclude: ['maplibre-gl'],
+  },
   build: {
     // 跳过 Vite 清空 dist 的整目录删除，避免被本机“批量删除保护”拦截导致构建失败；
     // 输出文件均带内容哈希，旧文件不影响站点使用，可定期手动清理。
