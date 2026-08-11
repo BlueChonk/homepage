@@ -367,11 +367,51 @@ function removeRoute() {
 
 /* ===== 虚线可见性标准 =====
    两点在屏幕上的距离至少占地图高度（上下宽度）的 30%，
-   并且两个点必须完整显示在地图框内（留边距），
-   不达标时自动放大视野（上限 zoom 17）。 */
+   并且“两个点 + 整条虚线”必须完整显示在地图框内（留边距），
+   不满足就迭代缩放（近处细化放大、远处缩小），直到全部出现（上限 zoom 17）。 */
 const MIN_LINE_RATIO = 0.3
-const LINE_MARGIN = 56
+const CAMERA_MARGIN = 56
 const LINE_MAX_ZOOM = 17
+const CAMERA_MAX_ITER = 8
+
+/* 视野求解器：以“两点 + 虚线采样点”的屏幕包围盒为准，迭代调整缩放与居中 */
+function settleCamera(routeCoords) {
+  if (!map || !routeCoords?.length) return
+  const rect = map.getContainer().getBoundingClientRect()
+  const target = rect.height * MIN_LINE_RATIO
+  const fitW = Math.max(rect.width - CAMERA_MARGIN * 2, 1)
+  const fitH = Math.max(rect.height - CAMERA_MARGIN * 2, 1)
+  let guard = 0
+  while (guard++ < CAMERA_MAX_ITER) {
+    const pts = routeCoords.map(([lng, lat]) => map.project([lng, lat]))
+    const xs = pts.map((p) => p.x)
+    const ys = pts.map((p) => p.y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    const bboxW = maxX - minX
+    const bboxH = maxY - minY
+    const p0 = pts[0]
+    const pN = pts[pts.length - 1]
+    const dist = Math.hypot(pN.x - p0.x, pN.y - p0.y)
+    const bboxFits = bboxW <= fitW && bboxH <= fitH
+    const spanOk = dist >= target
+    if (bboxFits && spanOk) break
+    let dz = 0
+    /* 虚线太短 → 放大细化 */
+    if (dist < target) dz = Math.log2(target / Math.max(dist, 1))
+    /* 有内容超出框外 → 缩小，保证全部可见（优先于长度标准） */
+    if (!bboxFits) {
+      const dzOutW = bboxW > fitW ? Math.log2(fitW / bboxW) : 0
+      const dzOutH = bboxH > fitH ? Math.log2(fitH / bboxH) : 0
+      dz = Math.min(dz, dzOutW, dzOutH)
+    }
+    const nextZoom = Math.min(LINE_MAX_ZOOM, Math.max(2, map.getZoom() + dz))
+    const center = map.unproject([(minX + maxX) / 2, (minY + maxY) / 2])
+    map.jumpTo({ center, zoom: nextZoom })
+  }
+}
 
 /* ===== 默认视野：站主与访客两点 + 连接虚线一同可见，且虚线长度达标 ===== */
 function fitBoth() {
@@ -383,33 +423,9 @@ function fitBoth() {
     const bounds = new LngLatBounds()
     bounds.extend(a)
     bounds.extend(b)
-    /* 先保证两点都可见（无动画基准，留边距） */
-    map.fitBounds(bounds, { padding: LINE_MARGIN, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
-    /* 再按虚线可见性标准放大；放大后仍保证两点在框内 */
-    const rect = map.getContainer().getBoundingClientRect()
-    const target = rect.height * MIN_LINE_RATIO
-    const p1 = map.project(a)
-    const p2 = map.project(b)
-    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-    let zoom = map.getZoom()
-    if (dist < target && zoom < LINE_MAX_ZOOM) {
-      /* 达到虚线标准的缩放 */
-      const spanZoom = Math.min(LINE_MAX_ZOOM, zoom + Math.log2(target / Math.max(dist, 1)))
-      /* 两点包围盒装进可视区域（留边距）所允许的最大缩放 */
-      const bboxW = Math.abs(p2.x - p1.x)
-      const bboxH = Math.abs(p2.y - p1.y)
-      const fitW = Math.max(rect.width - LINE_MARGIN * 2, 1)
-      const fitH = Math.max(rect.height - LINE_MARGIN * 2, 1)
-      let fitZoom = LINE_MAX_ZOOM
-      if (bboxW > 0) fitZoom = Math.min(fitZoom, zoom + Math.log2(fitW / bboxW))
-      if (bboxH > 0) fitZoom = Math.min(fitZoom, zoom + Math.log2(fitH / bboxH))
-      zoom = Math.min(spanZoom, fitZoom)
-    }
-    map.easeTo({
-      center: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
-      zoom,
-      duration: 1500,
-    })
+    /* 以两点为基准起步，再交给迭代求解器保证“两点 + 虚线”全部可见 */
+    map.fitBounds(bounds, { padding: CAMERA_MARGIN, maxZoom: LINE_MAX_ZOOM, minZoom: 2, duration: 0 })
+    settleCamera(greatCircle(HOME.lat, HOME.lng, v.lat, v.lng))
   } else {
     map.flyTo({
       center: [HOME.lng, HOME.lat],
@@ -686,14 +702,15 @@ let revealTimer = 0
 function maybeReveal() {
   if (ready.value) return
   if (loading.value || locating.value) return
-  ready.value = true
   if (map) {
     if (visitor.value?.lat != null) {
       addVisitorMarker()
       addRoute()
     }
+    /* 先完成视野求解（同步、单次绘制），再展示，避免露出中间状态 */
     fitBoth()
   }
+  ready.value = true
 }
 
 function startRevealTimer() {
