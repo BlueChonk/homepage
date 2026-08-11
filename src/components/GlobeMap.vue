@@ -463,11 +463,11 @@ onMounted(() => {
     renderWorldCopies: false,
     attributionControl: false,
     failIfMajorPerformanceCaveat: false,
+    /* 限制瓦片缓存，避免 globe 模式旋转时内存无限膨胀 */
+    maxTileCacheSize: 128,
   })
   if (import.meta.env.DEV) window.__globeMap = map
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
-  /* 限制瓦片缓存大小，避免 globe 模式旋转时内存无限膨胀 */
-  map.maxTileCacheSize(128)
   map.on('load', () => {
     clearTimeout(loadTimer)
     loading.value = false
