@@ -115,8 +115,17 @@ function inferCityFromCoords(lng, lat) {
 /* 访客城市名解析：中文名 → 坐标反推最近城市 → 原始名 → 访客 */
 function resolveVisitorCity(v) {
   if (!v) return ''
+  /* 名称与坐标一致性校验：若城市名对应的已知城市中心离实际坐标过远（>50km），
+     说明名称来自其他来源（如 GPS 覆盖了 IP 坐标），应以坐标反推为准 */
+  const zh = cityZhName(v.city)
+  if (zh && v.lat != null) {
+    const hit = ZH_CITIES.find(([cn]) => cn === zh)
+    if (hit && haversineKm(v.lat, v.lng, hit[2], hit[1]) > 50) {
+      return inferCityFromCoords(v.lng, v.lat) || zh
+    }
+  }
   return (
-    cityZhName(v.city) ||
+    zh ||
     (v.lat != null ? inferCityFromCoords(v.lng, v.lat) : '') ||
     (v.city ? String(v.city).trim() : '') ||
     '访客'
@@ -654,6 +663,8 @@ async function locateVisitor() {
           ...(visitor.value || {}),
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
+          /* GPS 坐标更精确，城市名改为由坐标反推，避免与 IP 名称矛盾 */
+          city: '',
           source: 'gps',
         }
       },
