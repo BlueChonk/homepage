@@ -374,6 +374,18 @@ const CAMERA_MARGIN = 56
 const LINE_MAX_ZOOM = 17
 const CAMERA_MAX_ITER = 8
 
+/* 左下角城市标签面板的“禁区”：默认视图下圆点/虚线不得与其重叠 */
+function labelZone(rect) {
+  if (expanded.value) return null
+  return {
+    left: 16,
+    top: rect.height - 46 - 108,
+    right: 16 + 240,
+    bottom: rect.height - 46,
+    gap: 14,
+  }
+}
+
 /* 视野求解器：以“两点 + 虚线采样点”的屏幕包围盒为准，迭代调整缩放与居中 */
 function settleCamera(routeCoords) {
   if (!map || !routeCoords?.length) return
@@ -381,6 +393,7 @@ function settleCamera(routeCoords) {
   const target = rect.height * MIN_LINE_RATIO
   const fitW = Math.max(rect.width - CAMERA_MARGIN * 2, 1)
   const fitH = Math.max(rect.height - CAMERA_MARGIN * 2, 1)
+  const zone = labelZone(rect)
   let guard = 0
   while (guard++ < CAMERA_MAX_ITER) {
     const pts = routeCoords.map(([lng, lat]) => map.project([lng, lat]))
@@ -397,7 +410,19 @@ function settleCamera(routeCoords) {
     const dist = Math.hypot(pN.x - p0.x, pN.y - p0.y)
     const bboxFits = bboxW <= fitW && bboxH <= fitH
     const spanOk = dist >= target
-    if (bboxFits && spanOk) break
+    /* 与左下角标签面板重叠则平移避开 */
+    let dx = 0
+    let dy = 0
+    const overlapX = zone && minX < zone.right && maxX > zone.left
+    const overlapY = zone && maxY > zone.top && minY < zone.bottom
+    const zoneClear = !(overlapX && overlapY)
+    if (overlapX && overlapY) {
+      const dxRight = zone.right + zone.gap - minX
+      const dyUp = zone.top - zone.gap - maxY
+      dx = dxRight > 0 ? dxRight : 0
+      dy = dyUp > 0 ? dyUp : 0
+    }
+    if (bboxFits && spanOk && zoneClear) break
     let dz = 0
     /* 虚线太短 → 放大细化 */
     if (dist < target) dz = Math.log2(target / Math.max(dist, 1))
@@ -408,7 +433,8 @@ function settleCamera(routeCoords) {
       dz = Math.min(dz, dzOutW, dzOutH)
     }
     const nextZoom = Math.min(LINE_MAX_ZOOM, Math.max(2, map.getZoom() + dz))
-    const center = map.unproject([(minX + maxX) / 2, (minY + maxY) / 2])
+    /* 画面内容往右/上平移 dx/dy，需把视野中心往相反方向移动 */
+    const center = map.unproject([(minX + maxX) / 2 - dx, (minY + maxY) / 2 - dy])
     map.jumpTo({ center, zoom: nextZoom })
   }
 }
@@ -776,7 +802,8 @@ onMounted(() => {
       visitor.value = v
     }
   }
-  map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
+  /* 版权标注：高德要求保留，移至左上角，避免与左下角城市标签重叠 */
+  map.addControl(new AttributionControl({ compact: true }), 'top-left')
   map.on('load', () => {
     clearTimeout(loadTimer)
     tileErrors = 0
@@ -1035,8 +1062,8 @@ html[data-theme="dark"] .world-map {
 /* 左下角：站主（黄点）与访客（绿点）两个城市；玻璃拟态 + 亮/暗主题自适应 */
 .city-label {
   position: absolute;
-  left: 16px;
-  bottom: 46px;
+  left: 14px;
+  bottom: 14px;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -1249,7 +1276,7 @@ html[data-theme="dark"] .city-label-text.visitor-text {
   }
   .city-label {
     left: 12px;
-    bottom: 44px;
+    bottom: 12px;
     padding: 8px 16px 8px 12px;
     border-radius: 14px;
     gap: 9px;
