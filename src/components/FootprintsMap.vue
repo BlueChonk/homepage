@@ -9,19 +9,9 @@ import '../utils/maplibreWorker'
 const { resolved } = useTheme()
 
 /* 瓦片源（多源自动切换）
-   优先使用矢量底图：加载后可移除所有地名标注，呈现干净的“点亮城市”效果；
-   高德栅格瓦片仅作兜底（其地名已烘焙进图片，无法单独移除） */
+   首选高德栅格底图：中文地名最全，点亮城市的视觉与高德一致；
+   高德不可用时回退矢量底图（并自动移除其英文标注）。 */
 const PROVIDERS = [
-  {
-    name: 'carto',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  },
-  {
-    name: 'openfreemap',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
-  },
   {
     name: 'amap',
     style: () => ({
@@ -36,6 +26,7 @@ const PROVIDERS = [
             'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
           ],
           tileSize: 256,
+          maxzoom: 18,
           attribution: '© 高德地图',
         },
       },
@@ -44,6 +35,16 @@ const PROVIDERS = [
         { id: 'amap', type: 'raster', source: 'amap' },
       ],
     }),
+  },
+  {
+    name: 'carto',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  },
+  {
+    name: 'openfreemap',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
   },
 ]
 
