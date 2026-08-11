@@ -252,7 +252,53 @@ function fitBoth() {
     bounds.extend([v.lng, v.lat])
     map.fitBounds(bounds, { padding: 80, maxZoom: 6, minZoom: 2, duration: 1800 })
   } else {
-    map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1600 })
+    map.flyTo({
+      center: [HOME.lng, HOME.lat],
+      zoom: 6,
+      pitch: expanded.value ? 32 : 0,
+      duration: 1600,
+    })
+  }
+}
+
+/* ===== 交互开关：未全屏时禁止一切拖拽 / 缩放 / 旋转 ===== */
+function setInteractions(enabled) {
+  if (!map) return
+  const handlers = [
+    'dragPan',
+    'dragRotate',
+    'scrollZoom',
+    'boxZoom',
+    'doubleClickZoom',
+    'touchZoomRotate',
+    'touchPitch',
+    'keyboard',
+  ]
+  for (const name of handlers) {
+    const handler = map[name]
+    if (handler && typeof handler[enabled ? 'enable' : 'disable'] === 'function') {
+      handler[enabled ? 'enable' : 'disable']()
+    }
+  }
+}
+
+/* ===== 右上角缩放/角度控件：仅全屏时出现 ===== */
+let navControl = null
+
+function addNavControl() {
+  if (navControl || !map) return
+  navControl = new NavigationControl({
+    visualizePitch: true,
+    showCompass: true,
+    showZoom: true,
+  })
+  map.addControl(navControl, 'top-right')
+}
+
+function removeNavControl() {
+  if (navControl && map) {
+    map.removeControl(navControl)
+    navControl = null
   }
 }
 
@@ -282,35 +328,62 @@ function addVisitorMarker() {
     .addTo(map)
 }
 
-/* ===== 访客定位：IP 兜底 + 浏览器精确定位 ===== */
+/* ===== 访客定位：IP 多接口兜底（限流/失败自动切换）+ 浏览器精确定位 ===== */
 async function locateVisitor() {
-  try {
-    const res = await fetch('https://ipwho.is/')
-    const d = await res.json()
-    if (d && d.success) {
-      visitor.value = {
-        lat: d.latitude,
-        lng: d.longitude,
-        city: d.city,
-        country: d.country,
-        source: 'ip',
-      }
-    }
-  } catch {
+  const probes = [
+    {
+      url: 'https://get.geojs.io/v1/ip/geo.json',
+      parse: (d) => {
+        const lat = parseFloat(d && d.latitude)
+        const lng = parseFloat(d && d.longitude)
+        return Number.isFinite(lat) && Number.isFinite(lng)
+          ? { lat, lng, city: d.city, country: d.country, source: 'ip' }
+          : null
+      },
+    },
+    {
+      url: 'https://ipwho.is/',
+      parse: (d) => (d && d.success && d.latitude != null
+        ? { lat: d.latitude, lng: d.longitude, city: d.city, country: d.country, source: 'ip' }
+        : null),
+    },
+    {
+      url: 'https://freeipapi.com/api/json',
+      parse: (d) => (d && d.latitude != null
+        ? { lat: d.latitude, lng: d.longitude, city: d.cityName, country: d.countryName, source: 'ip' }
+        : null),
+    },
+    {
+      url: 'https://ipinfo.io/json',
+      parse: (d) => {
+        if (!d || !d.loc) return null
+        const [lat, lng] = d.loc.split(',').map(Number)
+        return Number.isFinite(lat) && Number.isFinite(lng)
+          ? { lat, lng, city: d.city, country: d.country, source: 'ip' }
+          : null
+      },
+    },
+    {
+      url: 'https://ipapi.co/json/',
+      parse: (d) => (d && d.latitude != null
+        ? { lat: d.latitude, lng: d.longitude, city: d.city, country: d.country_name, source: 'ip' }
+        : null),
+    },
+  ]
+  for (const p of probes) {
     try {
-      const res = await fetch('https://ipapi.co/json/')
-      const d = await res.json()
-      if (d && d.latitude != null) {
-        visitor.value = {
-          lat: d.latitude,
-          lng: d.longitude,
-          city: d.city,
-          country: d.country_name,
-          source: 'ip',
-        }
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 6000)
+      const res = await fetch(p.url, { signal: ctrl.signal, cache: 'no-store' })
+      clearTimeout(timer)
+      if (!res.ok) continue
+      const v = p.parse(await res.json())
+      if (v) {
+        visitor.value = v
+        break
       }
     } catch {
-      /* 网络不可用时等待浏览器定位 */
+      /* 该接口不可用，尝试下一个 */
     }
   }
   if (navigator.geolocation) {
@@ -337,7 +410,11 @@ async function toggleExpand() {
   await nextTick()
   map?.resize()
   if (expanded.value) {
-    /* 进入全屏：保持两点可见的视野 */
+    /* 进入全屏：3D 地球 + 可交互 + 虚线连线与距离 */
+    setInteractions(true)
+    addNavControl()
+    map?.setProjection({ type: 'globe' })
+    map?.setPitch(32)
     if (visitor.value?.lat != null) {
       addVisitorMarker()
       addRoute()
@@ -346,13 +423,17 @@ async function toggleExpand() {
       map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1800 })
     }
   } else {
-    /* 退出全屏：回到默认两点视野 */
+    /* 退出全屏：恢复 2D 静态视图，只保留两点 */
+    removeNavControl()
+    setInteractions(false)
+    map?.setProjection({ type: 'mercator' })
+    map?.setPitch(0)
+    removeRoute()
     if (visitor.value?.lat != null) {
       addVisitorMarker()
-      addRoute()
       fitBoth()
     } else {
-      map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1600 })
+      map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 0, duration: 1600 })
     }
   }
 }
@@ -363,17 +444,13 @@ onMounted(() => {
     style: styleUrl(),
     center: [HOME.lng, HOME.lat],
     zoom: 6,
-    pitch: 32,
-    projection: { type: 'globe' },
+    pitch: 0,
+    projection: { type: 'mercator' },
     renderWorldCopies: false,
     attributionControl: false,
     failIfMajorPerformanceCaveat: false,
   })
   if (import.meta.env.DEV) window.__globeMap = map
-  map.addControl(
-    new NavigationControl({ visualizePitch: true, showCompass: true, showZoom: true }),
-    'top-right'
-  )
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
   map.on('load', () => {
     clearTimeout(loadTimer)
@@ -381,11 +458,15 @@ onMounted(() => {
     tileErrors = 0
     ensureHomeMarker()
     applySky()
-    /* 样式重载（换源/切主题）后恢复投影与全屏附加内容 */
-    map.setProjection({ type: 'globe' })
-    if (visitor.value?.lat != null) {
-      addVisitorMarker()
-      addRoute()
+    /* 默认 2D 静态视图；全屏状态才启用 3D 与交互 */
+    map.setProjection({ type: expanded.value ? 'globe' : 'mercator' })
+    map.setPitch(expanded.value ? 32 : 0)
+    setInteractions(expanded.value)
+    if (expanded.value) {
+      addNavControl()
+      if (visitor.value?.lat != null) addRoute()
+    } else {
+      removeNavControl()
     }
     fitBoth()
   })
@@ -422,7 +503,7 @@ watch(visitor, () => {
   updateDistance()
   if (!map || !map.loaded()) return
   addVisitorMarker()
-  addRoute()
+  if (expanded.value) addRoute()
   fitBoth()
 })
 
@@ -454,8 +535,6 @@ onUnmounted(() => {
       <p class="map-error-main">地图暂时加载失败</p>
       <p class="map-error-hint">请检查网络后刷新页面</p>
     </div>
-
-    <div class="globe-hint" aria-hidden="true">拖拽旋转 · 滚轮缩放</div>
 
     <!-- 左下角：居住城市大字（亮/暗主题自适应） -->
     <div class="city-label" aria-hidden="true">
@@ -554,23 +633,6 @@ html[data-theme="dark"] .world-map {
   margin: 0;
   font-size: 12px;
   opacity: 0.75;
-}
-
-.globe-hint {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  padding: 5px 12px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: none;
 }
 
 /* 左下角居住城市大字：玻璃拟态 + 亮/暗主题自适应 */
