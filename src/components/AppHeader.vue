@@ -16,8 +16,15 @@ const items = [
   { key: 'about', label: '关于' },
 ]
 
-const { currentTrack, playing, progress, volume, toggle, next, seek, setVolume, load } = usePlayer()
-onMounted(() => load())
+const { currentTrack, playing, volume, toggle, next, seek, setVolume, load, onProgress } = usePlayer()
+const navBarFillEl = ref(null)
+let unsubMiniProgress = null
+onMounted(() => {
+  load()
+  unsubMiniProgress = onProgress((pct) => {
+    if (navBarFillEl.value) navBarFillEl.value.style.width = pct + '%'
+  })
+})
 
 const volOpen = ref(false)
 const volDragging = ref(false)
@@ -97,6 +104,7 @@ const vClickOutside = {
 }
 
 onUnmounted(() => {
+  unsubMiniProgress?.()
   themeOpen.value = false
   volOpen.value = false
 })
@@ -141,7 +149,7 @@ onUnmounted(() => {
         </div>
 
         <div class="nav-mini-bar" @click="seek">
-          <div class="nav-mini-fill" :style="{ width: progress + '%' }"></div>
+          <div ref="navBarFillEl" class="nav-mini-fill"></div>
         </div>
 
         <button class="nav-mini-btn nav-mini-play" @click="toggle" :title="playing ? '暂停' : '播放'">
@@ -506,7 +514,6 @@ onUnmounted(() => {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-strong));
   border-radius: 999px;
-  transition: width 0.15s linear;
 }
 .nav-mini-btn {
   flex: 0 0 auto;

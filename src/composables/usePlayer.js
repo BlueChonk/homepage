@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 // 单例 Audio：不挂在任意组件模板上，因此即使 MusicView 被卸载（切到其他模块），
 // 播放也不会中断，实现“后台继续播放”。
@@ -18,6 +18,7 @@ let bound = false
 let initialized = false
 // 点击歌词跳转时，若音频元数据尚未就绪，先记下目标时间，等 loadedmetadata 后应用
 let pendingSeek = null
+let pendingRatio = null
 
 const currentTrack = computed(() => tracks.value[current.value] || null)
 const total = computed(() => tracks.value.length)
@@ -43,6 +44,10 @@ function bindAudio() {
       audio.currentTime = Math.min(audio.duration || 0, pendingSeek)
       currentTime.value = audio.currentTime
       pendingSeek = null
+    } else if (pendingRatio !== null) {
+      audio.currentTime = Math.min(audio.duration || 0, pendingRatio * (audio.duration || 0))
+      currentTime.value = audio.currentTime
+      pendingRatio = null
     }
   })
   audio.addEventListener('durationchange', () => {
@@ -127,11 +132,21 @@ function prev() {
 }
 
 function seek(e) {
-  if (!audio.duration) return
+  const track = currentTrack.value
+  if (!track) return
   const rect = e.currentTarget.getBoundingClientRect()
-  const ratio = (e.clientX - rect.left) / rect.width
-  audio.currentTime = Math.max(0, Math.min(audio.duration, ratio * audio.duration))
-  currentTime.value = audio.currentTime
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  if (!activeSrc) {
+    audio.src = srcOf(track)
+    activeSrc = srcOf(track)
+  }
+  if (audio.duration) {
+    audio.currentTime = Math.max(0, Math.min(audio.duration, ratio * audio.duration))
+    currentTime.value = audio.currentTime
+  } else {
+    pendingRatio = ratio
+  }
+  audio.play().catch(() => {})
 }
 
 function seekTo(sec) {
@@ -150,6 +165,44 @@ function setVolume(v) {
   const val = Math.min(1, Math.max(0, v))
   volume.value = val
   audio.volume = val
+}
+
+/* ===== 进度条 60fps 直写：避免 timeupdate（约 4Hz）+ Vue 重渲染造成的视觉卡顿 ===== */
+const progressListeners = new Set()
+let progressRaf = 0
+
+function progressLoop() {
+  const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0
+  const t = audio.currentTime || 0
+  for (const cb of progressListeners) cb(pct, t)
+  progressRaf = requestAnimationFrame(progressLoop)
+}
+
+/* 只在播放时跑 60fps 循环，暂停/停止后立即停掉，避免无谓空转 */
+watch(playing, (on) => {
+  if (on && progressListeners.size && !progressRaf) {
+    progressRaf = requestAnimationFrame(progressLoop)
+  } else if (!on && progressRaf) {
+    cancelAnimationFrame(progressRaf)
+    progressRaf = 0
+  }
+})
+
+function onProgress(cb) {
+  progressListeners.add(cb)
+  if (playing.value) {
+    if (!progressRaf) progressRaf = requestAnimationFrame(progressLoop)
+  } else {
+    const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0
+    cb(pct, audio.currentTime || 0)
+  }
+  return () => {
+    progressListeners.delete(cb)
+    if (!progressListeners.size && progressRaf) {
+      cancelAnimationFrame(progressRaf)
+      progressRaf = 0
+    }
+  }
 }
 
 export function usePlayer() {
@@ -172,5 +225,6 @@ export function usePlayer() {
     seek,
     seekTo,
     setVolume,
+    onProgress,
   }
 }

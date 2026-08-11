@@ -5,19 +5,17 @@ import {
   Marker,
   AttributionControl,
   NavigationControl,
+  LngLatBounds,
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
-import { FOOTPRINTS } from '../data/footprints'
 
 const { resolved } = useTheme()
 
-/* ===== 站主家乡：中国广西梧州市龙圩区龙圩镇广信路 215 号 =====
-   坐标采用与高德瓦片一致的 GCJ-02 坐标系，保证标记与街道精确对齐 */
+/* 精确居住地仅保留在代码内部，页面不展示任何地址文字：
+   广西壮族自治区梧州市龙圩区龙圩镇广信路215号 */
 const HOME = {
-  name: 'Wuzhou · Guangxi, China',
-  short: 'Wuzhou, Guangxi',
-  address: 'Guangxin Road 215, Longxu Town, Longxu District, Wuzhou, Guangxi, China',
+  name: '广西梧州',
   lng: 111.2573,
   lat: 23.4312,
 }
@@ -42,7 +40,6 @@ const PROVIDERS = [
         },
       },
       layers: [
-        { id: 'amap-bg', type: 'background', paint: { 'background-color': '#eef0f2' } },
         { id: 'amap', type: 'raster', source: 'amap' },
       ],
     }),
@@ -69,9 +66,9 @@ const distanceKm = ref(null)
 let loadTimer = 0
 let tileErrors = 0
 let map = null
-let markersAdded = false
 let homeMarker = null
 let visitorMarker = null
+let routeLabelMarker = null
 
 const container = ref(null)
 
@@ -89,11 +86,17 @@ const darkFilter = computed(
 function applySky() {
   if (!map) return
   const dark = resolved.value === 'dark'
+  const inverted = darkFilter.value
+  const palette = inverted
+    ? { sky: '#cfe8ff', horizon: '#eaf4ff', fog: '#ffffff' }
+    : dark
+      ? { sky: '#0b1020', horizon: '#2b3a5c', fog: '#0b1020' }
+      : { sky: '#cfe8ff', horizon: '#eaf4ff', fog: '#ffffff' }
   map.setSky({
     'atmosphere-blend': 1,
-    'sky-color': dark ? '#0b1020' : '#cfe8ff',
-    'horizon-color': dark ? '#2b3a5c' : '#eaf4ff',
-    'fog-color': dark ? '#0b1020' : '#ffffff',
+    'sky-color': palette.sky,
+    'horizon-color': palette.horizon,
+    'fog-color': palette.fog,
   })
 }
 
@@ -144,49 +147,138 @@ function updateDistance() {
   }
 }
 
-/* ===== 标记 ===== */
+/* ===== 大圆路径插值：两点间沿地球表面的弧线 ===== */
+function greatCircle(aLat, aLng, bLat, bLng, segments = 96) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const toDeg = (r) => (r * 180) / Math.PI
+  const f1 = toRad(aLat)
+  const l1 = toRad(aLng)
+  const f2 = toRad(bLat)
+  const l2 = toRad(bLng)
+  const dl = l2 - l1
+  const pts = []
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments
+    const d = Math.acos(
+      Math.max(-1, Math.min(1, Math.sin(f1) * Math.sin(f2) + Math.cos(f1) * Math.cos(f2) * Math.cos(dl)))
+    )
+    let lat
+    let lng
+    if (Math.sin(d) < 1e-9) {
+      lat = f1 + (f2 - f1) * t
+      lng = l1 + dl * t
+    } else {
+      const A = Math.sin((1 - t) * d) / Math.sin(d)
+      const B = Math.sin(t * d) / Math.sin(d)
+      const x = A * Math.cos(f1) * Math.cos(l1) + B * Math.cos(f2) * Math.cos(l2)
+      const y = A * Math.cos(f1) * Math.sin(l1) + B * Math.cos(f2) * Math.sin(l2)
+      const z = A * Math.sin(f1) + B * Math.sin(f2)
+      lat = Math.atan2(z, Math.sqrt(x * x + y * y))
+      lng = Math.atan2(y, x)
+    }
+    pts.push([toDeg(lng), toDeg(lat)])
+  }
+  return pts
+}
+
+/* 把大圆路径拆成一段段小线段，用几何方式实现虚线（地球投影下同样生效） */
+function dashedRoute(coords, dash = 8, gap = 8) {
+  const segments = []
+  let i = 0
+  while (i < coords.length - 1) {
+    const end = Math.min(i + dash, coords.length - 1)
+    segments.push(coords.slice(i, end + 1))
+    i = end + gap
+  }
+  return segments.filter((s) => s.length >= 2)
+}
+
+/* ===== 虚线连线 + 距离标签 ===== */
+function addRoute() {
+  const v = visitor.value
+  if (!map || !v || v.lat == null) return
+  const coords = greatCircle(HOME.lat, HOME.lng, v.lat, v.lng)
+  const data = {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'MultiLineString',
+      coordinates: dashedRoute(coords),
+    },
+  }
+  if (map.getSource('home-route')) {
+    map.getSource('home-route').setData(data)
+  } else {
+    map.addSource('home-route', { type: 'geojson', data })
+    map.addLayer({
+      id: 'home-route',
+      type: 'line',
+      source: 'home-route',
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': resolved.value === 'dark' ? '#8aa3ff' : '#4f6ef7',
+        'line-width': 3.5,
+        'line-opacity': 1,
+      },
+    })
+  }
+  const mid = coords[Math.floor(coords.length / 2)]
+  const el = document.createElement('div')
+  el.className = 'route-label'
+  el.textContent = distanceText.value
+  routeLabelMarker?.remove()
+  routeLabelMarker = new Marker({ element: el, anchor: 'center' }).setLngLat(mid).addTo(map)
+}
+
+function removeRoute() {
+  if (!map) return
+  routeLabelMarker?.remove()
+  routeLabelMarker = null
+  if (map.getLayer('home-route')) map.removeLayer('home-route')
+  if (map.getSource('home-route')) map.removeSource('home-route')
+}
+
+/* ===== 默认视野：站主与访客两点在地球上一同可见 ===== */
+function fitBoth() {
+  if (!map) return
+  const v = visitor.value
+  if (v && v.lat != null) {
+    const bounds = new LngLatBounds()
+    bounds.extend([HOME.lng, HOME.lat])
+    bounds.extend([v.lng, v.lat])
+    map.fitBounds(bounds, { padding: 80, maxZoom: 6, minZoom: 2, duration: 1800 })
+  } else {
+    map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1600 })
+  }
+}
+
+/* ===== 标记：仅圆点，不带文字 ===== */
 function addHomeMarker() {
   const el = document.createElement('div')
   el.className = 'map-pin home-pin'
-  el.title = HOME.address
-  el.innerHTML = `
-    <span class="map-pin-dot"></span>
-    <span class="map-pin-label">${HOME.short}</span>
-  `
+  el.innerHTML = '<span class="map-pin-dot"></span>'
   homeMarker = new Marker({ element: el, anchor: 'bottom' })
     .setLngLat([HOME.lng, HOME.lat])
     .addTo(map)
 }
 
+function ensureHomeMarker() {
+  if (map && !homeMarker) addHomeMarker()
+}
+
 function addVisitorMarker() {
   const v = visitor.value
   if (!v || v.lat == null || !map) return
-  const label = v.city && v.country ? `${v.city}, ${v.country}` : 'You'
   const el = document.createElement('div')
   el.className = 'map-pin visitor-pin'
-  el.innerHTML = `
-    <span class="map-pin-dot"></span>
-    <span class="map-pin-label">${label}</span>
-  `
+  el.innerHTML = '<span class="map-pin-dot"></span>'
   visitorMarker?.remove()
   visitorMarker = new Marker({ element: el, anchor: 'bottom' })
     .setLngLat([v.lng, v.lat])
     .addTo(map)
-}
-
-function addMarkers() {
-  if (!map || markersAdded) return
-  markersAdded = true
-  for (const m of FOOTPRINTS) {
-    const el = document.createElement('div')
-    el.className = 'map-pin'
-    el.innerHTML = `
-      <span class="map-pin-dot"></span>
-      <span class="map-pin-label">${m.name}</span>
-    `
-    new Marker({ element: el, anchor: 'bottom' }).setLngLat([m.lng, m.lat]).addTo(map)
-  }
-  addHomeMarker()
 }
 
 /* ===== 访客定位：IP 兜底 + 浏览器精确定位 ===== */
@@ -202,8 +294,6 @@ async function locateVisitor() {
         country: d.country,
         source: 'ip',
       }
-      updateDistance()
-      addVisitorMarker()
     }
   } catch {
     try {
@@ -217,8 +307,6 @@ async function locateVisitor() {
           country: d.country_name,
           source: 'ip',
         }
-        updateDistance()
-        addVisitorMarker()
       }
     } catch {
       /* 网络不可用时等待浏览器定位 */
@@ -233,8 +321,6 @@ async function locateVisitor() {
           lng: pos.coords.longitude,
           source: 'gps',
         }
-        updateDistance()
-        addVisitorMarker()
       },
       () => {
         /* 用户拒绝或定位失败：保留 IP 定位结果 */
@@ -244,65 +330,63 @@ async function locateVisitor() {
   }
 }
 
-/* ===== 视图控制 ===== */
-function goHome() {
-  map?.flyTo({
-    center: [HOME.lng, HOME.lat],
-    zoom: 13,
-    pitch: 55,
-    bearing: 0,
-    duration: 2200,
-  })
-}
-
-function goWorld() {
-  map?.flyTo({
-    center: [HOME.lng, 26],
-    zoom: 1.6,
-    pitch: 22,
-    bearing: -12,
-    duration: 2200,
-  })
-}
-
-function goVisitor() {
-  const v = visitor.value
-  if (v && v.lat != null) {
-    map?.flyTo({ center: [v.lng, v.lat], zoom: 5.5, pitch: 40, duration: 2200 })
-  }
-}
-
+/* ===== 视图控制：默认与全屏均为 3D 地球，默认框住两点 ===== */
 async function toggleExpand() {
   expanded.value = !expanded.value
   await nextTick()
   map?.resize()
+  if (expanded.value) {
+    /* 进入全屏：保持两点可见的视野 */
+    if (visitor.value?.lat != null) {
+      addVisitorMarker()
+      addRoute()
+      fitBoth()
+    } else {
+      map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1800 })
+    }
+  } else {
+    /* 退出全屏：回到默认两点视野 */
+    if (visitor.value?.lat != null) {
+      addVisitorMarker()
+      addRoute()
+      fitBoth()
+    } else {
+      map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1600 })
+    }
+  }
 }
 
 onMounted(() => {
   map = new MaplibreMap({
     container: container.value,
     style: styleUrl(),
-    center: [HOME.lng, 27.5],
-    zoom: 3.5,
-    pitch: 35,
-    bearing: -8,
+    center: [HOME.lng, HOME.lat],
+    zoom: 6,
+    pitch: 32,
     projection: { type: 'globe' },
     renderWorldCopies: false,
     attributionControl: false,
     failIfMajorPerformanceCaveat: false,
   })
+  if (import.meta.env.DEV) window.__globeMap = map
   map.addControl(
     new NavigationControl({ visualizePitch: true, showCompass: true, showZoom: true }),
     'top-right'
   )
   map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
-  container.value?.classList.toggle('dark-tiles', darkFilter.value)
   map.on('load', () => {
     clearTimeout(loadTimer)
     loading.value = false
     tileErrors = 0
-    addMarkers()
+    ensureHomeMarker()
     applySky()
+    /* 样式重载（换源/切主题）后恢复投影与全屏附加内容 */
+    map.setProjection({ type: 'globe' })
+    if (visitor.value?.lat != null) {
+      addVisitorMarker()
+      addRoute()
+    }
+    fitBoth()
   })
   map.on('error', (e) => {
     if (failed.value) return
@@ -320,20 +404,34 @@ onMounted(() => {
 
 watch([resolved, providerIndex], () => {
   const p = PROVIDERS[providerIndex.value]
-  container.value?.classList.toggle('dark-tiles', darkFilter.value)
   applySky()
   if (map && !failed.value && p && !p.style) {
     map.setStyle(styleUrl(), { diff: false })
   }
+  if (map?.getLayer('home-route')) {
+    map.setPaintProperty(
+      'home-route',
+      'line-color',
+      resolved.value === 'dark' ? '#8aa3ff' : '#4f6ef7'
+    )
+  }
+})
+
+watch(visitor, () => {
+  updateDistance()
+  if (!map || !map.loaded()) return
+  addVisitorMarker()
+  addRoute()
+  fitBoth()
 })
 
 onUnmounted(() => {
   clearTimeout(loadTimer)
+  removeRoute()
   visitorMarker?.remove()
   homeMarker?.remove()
   map?.remove()
   map = null
-  markersAdded = false
   providerIndex.value = 0
 })
 </script>
@@ -342,13 +440,13 @@ onUnmounted(() => {
   <div
     ref="container"
     class="world-map"
-    :class="{ expanded }"
+    :class="{ expanded, 'dark-tiles': darkFilter }"
     role="region"
-    aria-label="3D 地球与足迹"
+    aria-label="居住地地图"
   >
     <div v-if="loading" class="map-overlay">
       <span class="map-loading-dot"></span>
-      <span>地球加载中…</span>
+      <span>地图加载中…</span>
     </div>
     <div v-if="failed" class="map-overlay">
       <div class="map-error-emoji">🗺️</div>
@@ -356,40 +454,26 @@ onUnmounted(() => {
       <p class="map-error-hint">请检查网络后刷新页面</p>
     </div>
 
-    <!-- 右下角信息卡：家乡地址 + 访客距离 + 视图控制 -->
-    <aside class="map-card">
-      <div class="map-card-head">
-        <span class="map-card-title">My Home · 我的家乡</span>
-        <button class="map-card-icon" :title="expanded ? '还原' : '放大扩展'" @click="toggleExpand">
-          <svg v-if="!expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 4l6 6M14 10l6-6M4 20l6-6M14 14l6 6" />
-          </svg>
-        </button>
-      </div>
-      <p class="map-card-addr" :title="HOME.address">{{ HOME.address }}</p>
-      <p class="map-card-now">
-        <span class="now-dot"></span>
-        Now at: {{ HOME.name }}
-      </p>
+    <div class="globe-hint" aria-hidden="true">拖拽旋转 · 滚轮缩放</div>
 
-      <div v-if="distanceKm !== null && visitor" class="map-card-visitor">
-        <span class="you-dot"></span>
-        <span class="you-text">
-          You · {{ visitor.city || 'your location' }}<template v-if="visitor.country">, {{ visitor.country }}</template>
-          <b>{{ distanceText }} away</b>
-        </span>
-      </div>
-      <p v-else class="map-card-hint">允许定位后，将显示你与家乡的距离</p>
+    <!-- 左下角：居住城市大字（亮/暗主题自适应） -->
+    <div class="city-label" aria-hidden="true">
+      <span class="city-label-dot"></span>
+      <span class="city-label-text">广西梧州</span>
+    </div>
 
-      <div class="map-card-actions">
-        <button @click="goHome">家乡</button>
-        <button @click="goWorld">世界</button>
-        <button v-if="visitor && visitor.lat != null" @click="goVisitor">我的位置</button>
-      </div>
-    </aside>
+    <!-- 默认：右下角仅一个全屏按钮；全屏：仅一个缩小按钮 -->
+    <button v-if="!expanded" class="expand-fab" title="进入全屏" aria-label="进入全屏" @click="toggleExpand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
+      </svg>
+    </button>
+
+    <button v-else class="map-exit" title="还原" aria-label="缩小" @click="toggleExpand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 4l6 6M14 10l6-6M4 20l6-6M14 14l6 6" />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -397,15 +481,24 @@ onUnmounted(() => {
 .world-map {
   position: relative;
   width: 100%;
-  height: 460px;
+  height: 520px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  background:
-    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 1.5px) 0 0 / 26px 26px,
-    var(--bg-soft);
+  /* 地球周围的空间背景：亮色为淡蓝天空，暗色为星空 */
+  background: linear-gradient(180deg, #b9d8f5 0%, #e3f1fc 55%, #f4f9fe 100%);
   transition: border-radius 0.25s ease;
+}
+html[data-theme="dark"] .world-map {
+  background:
+    radial-gradient(circle 1.2px at 18% 24%, rgba(255, 255, 255, 0.75), transparent 100%),
+    radial-gradient(circle 1.6px at 62% 12%, rgba(255, 255, 255, 0.55), transparent 100%),
+    radial-gradient(circle 1px at 82% 55%, rgba(255, 255, 255, 0.45), transparent 100%),
+    radial-gradient(circle 1px at 38% 78%, rgba(255, 255, 255, 0.5), transparent 100%),
+    radial-gradient(circle 1.2px at 9% 82%, rgba(255, 255, 255, 0.4), transparent 100%),
+    radial-gradient(circle 1.6px at 92% 88%, rgba(255, 255, 255, 0.35), transparent 100%),
+    linear-gradient(180deg, #0d1628 0%, #070c18 55%, #04060d 100%);
 }
 
 /* 放大扩展：铺满整个视口 */
@@ -462,132 +555,132 @@ onUnmounted(() => {
   opacity: 0.75;
 }
 
-/* ===== 右下角信息卡 ===== */
-.map-card {
+.globe-hint {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  padding: 5px 12px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+/* 左下角居住城市大字：玻璃拟态 + 亮/暗主题自适应 */
+.city-label {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 20px 10px 15px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.city-label-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.85);
+}
+.city-label-text {
+  font-size: clamp(22px, 2.8vw, 32px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: var(--text);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+html[data-theme="dark"] .city-label {
+  background: color-mix(in srgb, #0b1224 58%, transparent);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+html[data-theme="dark"] .city-label-text {
+  color: #f2f6ff;
+  text-shadow:
+    0 2px 14px rgba(79, 110, 247, 0.6),
+    0 0 28px rgba(79, 110, 247, 0.28);
+}
+
+/* 右下角全屏按钮（默认视图） */
+.expand-fab {
   position: absolute;
   right: 14px;
   bottom: 14px;
   z-index: 20;
-  width: min(320px, calc(100% - 28px));
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  color: var(--text);
-}
-.map-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.map-card-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-}
-.map-card-icon {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   color: var(--text-secondary);
+  box-shadow: var(--shadow-md);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
 }
-.map-card-icon:hover {
+.expand-fab:hover {
   color: var(--accent);
   border-color: var(--accent-border);
   background: var(--accent-soft);
+  transform: scale(1.05);
 }
-.map-card-icon svg {
-  width: 14px;
-  height: 14px;
+.expand-fab svg {
+  width: 18px;
+  height: 18px;
 }
-.map-card-addr {
-  margin: 8px 0 4px;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--text-secondary);
-}
-.map-card-now {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-.now-dot,
-.you-dot {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
+
+/* ===== 全屏右下角缩小按钮 ===== */
+.map-exit {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 30;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-}
-.map-card-visitor {
-  margin-top: 10px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
-  border: 1px solid var(--accent-border);
-}
-.you-dot {
-  margin-top: 4px;
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-.you-text {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-.you-text b {
-  display: block;
-  font-size: 13px;
-  color: var(--accent-strong);
-}
-.map-card-hint {
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  color: var(--text-tertiary);
-}
-.map-card-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-}
-.map-card-actions button {
-  flex: 1 1 auto;
-  padding: 7px 0;
-  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-secondary);
-  font-size: 12.5px;
+  box-shadow: var(--shadow-md);
   cursor: pointer;
-  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
 }
-.map-card-actions button:hover {
+.map-exit:hover {
   color: var(--accent);
   border-color: var(--accent-border);
   background: var(--accent-soft);
+  transform: scale(1.05);
+}
+.map-exit svg {
+  width: 18px;
+  height: 18px;
 }
 
-/* ===== 标记 ===== */
+/* ===== 标记：纯圆点，不显示文字 ===== */
 .world-map :deep(.map-pin) {
   display: flex;
   flex-direction: column;
@@ -616,21 +709,6 @@ onUnmounted(() => {
   0% { transform: scale(0.55); opacity: 1; }
   100% { transform: scale(1.9); opacity: 0; }
 }
-.world-map :deep(.map-pin-label) {
-  margin-top: 6px;
-  padding: 2px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-}
-
-/* 家乡标记：金色强调 + 更大的脉冲 */
 .world-map :deep(.home-pin .map-pin-dot) {
   width: 18px;
   height: 18px;
@@ -641,13 +719,6 @@ onUnmounted(() => {
 .world-map :deep(.home-pin .map-pin-dot)::after {
   border-color: #fbbf24;
 }
-.world-map :deep(.home-pin .map-pin-label) {
-  color: #fff;
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-/* 访客标记：绿色 */
 .world-map :deep(.visitor-pin .map-pin-dot) {
   background: #22c55e;
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
@@ -655,9 +726,20 @@ onUnmounted(() => {
 .world-map :deep(.visitor-pin .map-pin-dot)::after {
   border-color: #22c55e;
 }
-.world-map :deep(.visitor-pin .map-pin-label) {
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.45);
+
+/* 虚线连线中点的距离标签 */
+.world-map :deep(.route-label) {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ===== 控件配色 ===== */
@@ -684,17 +766,27 @@ onUnmounted(() => {
 
 @media (max-width: 720px) {
   .world-map {
-    height: 380px;
+    height: 420px;
   }
-  .map-card {
+  .city-label {
+    left: 12px;
+    bottom: 44px;
+    padding: 8px 16px 8px 12px;
+    border-radius: 14px;
+    gap: 9px;
+  }
+  .city-label-text {
+    font-size: 20px;
+  }
+  .map-exit,
+  .expand-fab {
     right: 10px;
     bottom: 10px;
-    width: min(290px, calc(100% - 20px));
   }
 }
 @media (max-width: 480px) {
   .world-map {
-    height: 340px;
+    height: 380px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

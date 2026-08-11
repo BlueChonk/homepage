@@ -5,7 +5,7 @@ import { useLyrics } from '../composables/useLyrics'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
-  volume, currentTrack, load, play, toggle, next, prev, seek, setVolume,
+  volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
 } = usePlayer()
 
 const {
@@ -73,6 +73,15 @@ function probeDurations() {
 const scrubbing = ref(false)
 const scrubRatio = ref(null)
 const barRef = ref(null)
+const barFillEl = ref(null)
+const barKnobEl = ref(null)
+let unsubProgress = null
+
+/* 直接写进度条 DOM（60fps），不经过 Vue 重渲染，保证播放时顺滑无卡顿 */
+function paintBar(percent) {
+  if (barFillEl.value) barFillEl.value.style.width = percent + '%'
+  if (barKnobEl.value) barKnobEl.value.style.left = percent + '%'
+}
 
 function ratioFromEvent(e) {
   const rect = barRef.value.getBoundingClientRect()
@@ -83,19 +92,21 @@ function onBarDown(e) {
   e.preventDefault()
   scrubbing.value = true
   scrubRatio.value = ratioFromEvent(e)
+  paintBar(scrubRatio.value * 100)
   barRef.value?.setPointerCapture?.(e.pointerId)
 }
 
 function onBarMove(e) {
   if (!scrubbing.value) return
   scrubRatio.value = ratioFromEvent(e)
+  paintBar(scrubRatio.value * 100)
 }
 
 function onBarUp(e) {
   if (!scrubbing.value) return
   scrubbing.value = false
   scrubRatio.value = null
-  if (duration.value) seek({ currentTarget: barRef.value, clientX: e.clientX })
+  seek({ currentTarget: barRef.value, clientX: e.clientX })
 }
 
 /* ===== 音量 ===== */
@@ -128,11 +139,6 @@ function onVolDragEnd() {
   window.removeEventListener('pointerup', onVolDragEnd)
 }
 
-const barFillWidth = computed(() => {
-  if (scrubbing.value && scrubRatio.value !== null) return scrubRatio.value * 100
-  return progress.value
-})
-
 const shownTime = computed(() => {
   if (scrubbing.value && scrubRatio.value !== null) return scrubRatio.value * duration.value
   return currentTime.value
@@ -157,10 +163,17 @@ watch(activeIndex, () => {
 
 onMounted(() => {
   load()
-  probeDurations()
+  unsubProgress = onProgress((pct) => {
+    if (!scrubbing.value) paintBar(pct)
+  })
+  paintBar(progress.value)
 })
 
+/* 播放清单加载后探测每首歌时长（默认歌曲进入即读取出时间） */
+watch(tracks, () => probeDurations(), { immediate: true })
+
 onUnmounted(() => {
+  unsubProgress?.()
   durationProbes.forEach((a) => a && (a.src = ''))
   window.removeEventListener('pointermove', onVolDragMove)
   window.removeEventListener('pointerup', onVolDragEnd)
@@ -237,8 +250,8 @@ onUnmounted(() => {
             @pointerup="onBarUp"
             @pointercancel="scrubbing = false"
           >
-            <div class="bar-fill" :style="{ width: barFillWidth + '%' }"></div>
-            <div class="bar-knob" :style="{ left: barFillWidth + '%' }"></div>
+            <div ref="barFillEl" class="bar-fill"></div>
+            <div ref="barKnobEl" class="bar-knob"></div>
           </div>
           <span class="time">{{ formatTime(duration) }}</span>
         </div>
@@ -724,28 +737,44 @@ html[data-theme="dark"] .stage-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.18s, color 0.18s, background 0.18s;
+  transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.15s ease, box-shadow 0.18s ease;
 }
 .ctrl:hover {
   border-color: var(--accent-border);
   color: var(--accent);
   background: var(--accent-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--accent-soft);
+}
+.ctrl:active {
+  transform: translateY(0) scale(0.9);
+  box-shadow: none;
 }
 .ctrl svg {
   width: 18px;
   height: 18px;
 }
 .ctrls .play {
+  flex: 0 0 auto;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   border-color: transparent;
+  border-radius: 50%;
   color: #fff;
   width: 58px;
   height: 58px;
-  box-shadow: 0 6px 20px var(--accent-soft);
+  box-shadow: 0 6px 20px var(--accent-soft), 0 0 0 0 color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 .ctrls .play:hover {
   filter: brightness(1.08);
   color: #fff;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 28px var(--accent-soft), 0 0 0 8px color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+.ctrls .play:active {
+  transform: translateY(0) scale(0.94);
+  filter: brightness(1);
+  box-shadow: 0 4px 14px var(--accent-soft);
 }
 .ctrls .play svg {
   width: 24px;
