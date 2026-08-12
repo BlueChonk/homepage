@@ -116,24 +116,10 @@ function onBrand() {
 }
 
 const { mode, resolved, setMode } = useTheme()
-const themeOpen = ref(false)
-const themeOptions = [
-  { key: 'light', label: '亮色' },
-  { key: 'dark', label: '暗色' },
-  { key: 'system', label: '跟随系统' },
-]
 
-function onThemeSelect(key) {
-  setMode(key)
-  themeOpen.value = false
-}
-
-function onThemeToggle() {
-  themeOpen.value = !themeOpen.value
-}
-
-function closeThemeMenu() {
-  themeOpen.value = false
+/* 点击直接切换亮色/暗色（纯图标按钮，无下拉菜单） */
+function toggleTheme() {
+  setMode(resolved.value === 'dark' ? 'light' : 'dark')
 }
 
 const vClickOutside = {
@@ -150,7 +136,6 @@ const vClickOutside = {
 
 onUnmounted(() => {
   unsubMiniProgress?.()
-  themeOpen.value = false
   volOpen.value = false
 })
 </script>
@@ -227,11 +212,12 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="theme-switcher" v-click-outside="closeThemeMenu">
+      <div class="theme-switcher">
         <button
           class="theme-btn"
-          :title="'主题：' + themeOptions.find((o) => o.key === mode)?.label"
-          @click.stop="onThemeToggle"
+          :title="resolved === 'dark' ? '切换到亮色' : '切换到暗色'"
+          :aria-label="resolved === 'dark' ? '切换到亮色' : '切换到暗色'"
+          @click="toggleTheme"
         >
           <svg v-if="resolved === 'light'" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 10-1.41 1.41l1.41 1.41a1 1 0 101.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 10-1.41 1.41l1.41 1.41a1 1 0 101.41-1.41l-1.41-1.41zm1.41-10.96a1 1 0 10-1.41-1.41l-1.41 1.41a1 1 0 101.41 1.41l1.41-1.41zM7.4 18.39a1 1 0 10-1.41-1.41l-1.41 1.41a1 1 0 101.41 1.41l1.41-1.41z" />
@@ -240,29 +226,6 @@ onUnmounted(() => {
             <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
           </svg>
         </button>
-
-        <Transition name="theme-drop">
-          <div v-if="themeOpen" class="theme-dropdown">
-            <button
-              v-for="opt in themeOptions"
-              :key="opt.key"
-              class="theme-option"
-              :class="{ active: mode === opt.key }"
-              @click="onThemeSelect(opt.key)"
-            >
-              <svg v-if="opt.key === 'light'" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 10-1.41 1.41l1.41 1.41a1 1 0 101.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 10-1.41 1.41l1.41 1.41a1 1 0 101.41-1.41l-1.41-1.41zm1.41-10.96a1 1 0 10-1.41-1.41l-1.41 1.41a1 1 0 101.41 1.41l1.41-1.41zM7.4 18.39a1 1 0 10-1.41-1.41l-1.41 1.41a1 1 0 101.41 1.41l1.41-1.41z" />
-              </svg>
-              <svg v-else-if="opt.key === 'dark'" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-8 10a8 8 0 018-8v16a8 8 0 01-8-8z" />
-              </svg>
-              <span>{{ opt.label }}</span>
-            </button>
-          </div>
-        </Transition>
       </div>
     </div>
   </header>
@@ -431,69 +394,6 @@ onUnmounted(() => {
 .theme-btn svg {
   width: 17px;
   height: 17px;
-}
-.theme-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  min-width: 132px;
-  padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 100;
-}
-.theme-dropdown::after {
-  content: "";
-  position: absolute;
-  top: -6px;
-  right: 12px;
-  transform: rotate(45deg);
-  width: 11px;
-  height: 11px;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-}
-.theme-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  white-space: nowrap;
-}
-.theme-option:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-.theme-option.active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-.theme-option svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-.theme-drop-enter-active,
-.theme-drop-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.theme-drop-enter-from,
-.theme-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 
 /* ---- 迷你播放器（QQ 音乐风格胶囊外框） ---- */
