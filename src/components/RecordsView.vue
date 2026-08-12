@@ -265,12 +265,22 @@ onUnmounted(() => {
             class="record-card"
             @click="openRecord(record)"
           >
-            <div class="card-tag">{{ record.category || '记录' }}</div>
-            <h3 class="card-title">{{ record.title }}</h3>
+            <h3 class="card-title">
+              <span class="card-title-bar" aria-hidden="true"></span>
+              <span class="card-title-text">{{ record.title }}</span>
+            </h3>
             <div class="card-meta">
               <span v-if="record.date" class="meta-date">{{ record.date }}</span>
+              <span v-if="record.wordCount" class="meta-words">{{ record.wordCount.toLocaleString('en-US') }} 字</span>
             </div>
-            <p v-if="record.excerpt" class="card-excerpt">{{ record.excerpt }}</p>
+            <div v-if="record.excerpt" class="card-excerpt">
+              <MarkdownPreview :source="record.excerpt" variant="records-excerpt" class="card-excerpt-md" />
+            </div>
+            <span class="card-chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
           </article>
         </div>
 
@@ -428,18 +438,10 @@ onUnmounted(() => {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
-.card-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 2px 10px;
-  margin-bottom: 10px;
-}
 .card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 17px;
   font-weight: 600;
   line-height: 1.45;
@@ -448,18 +450,100 @@ onUnmounted(() => {
   transition: color 0.2s ease;
   overflow-wrap: anywhere;
 }
+.card-title-bar {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 1.1em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+.card-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-right: 44px;
+}
 .record-card:hover .card-title { color: var(--accent-strong); }
-.card-meta { margin-bottom: 8px; font-size: 12px; }
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
 .meta-date { color: var(--text-tertiary); }
+.meta-words {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+.meta-words::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border);
+  margin-right: 10px;
+}
 .card-excerpt {
   font-size: 14px;
   line-height: 1.65;
   color: var(--text-secondary);
+  padding-right: 44px;
+  overflow-wrap: anywhere;
+}
+.card-excerpt-md :deep(.md-render-inner) {
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  overflow-wrap: anywhere;
+}
+.card-excerpt-md :deep(.md-render-inner > :first-child) { margin-top: 0; }
+.card-excerpt-md :deep(.md-render-inner > :last-child) { margin-bottom: 0; }
+.card-excerpt-md :deep(.md-render-inner p) { margin: 0; }
+.card-excerpt-md :deep(.md-render-inner a) {
+  color: var(--accent-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-border);
+}
+.card-excerpt-md :deep(.md-render-inner strong),
+.card-excerpt-md :deep(.md-render-inner code) {
+  color: var(--text);
+}
+/* 右侧 “>” 图标：悬停时变为主题色圆钮 */
+.card-chevron {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-chevron svg {
+  width: 15px;
+  height: 15px;
+}
+.record-card:hover .card-chevron {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+  box-shadow: 0 4px 14px var(--accent-soft);
+  transform: translateY(-50%) translateX(2px);
 }
 
 /* 分页 */
