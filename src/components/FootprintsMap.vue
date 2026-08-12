@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
-import { Map as MaplibreMap, Marker, AttributionControl, LngLatBounds } from 'maplibre-gl'
+import { Map as MaplibreMap, AttributionControl, LngLatBounds } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
 import { FOOTPRINTS } from '../data/footprints'
@@ -87,8 +87,6 @@ function tryNextProvider() {
 
 const container = ref(null)
 let map = null
-let labelsAdded = false
-const labelMarkers = []
 
 /* 生成覆盖市区范围的圆形色块（以城市中心为圆心、半径 r km） */
 function circlePolygon(lng, lat, radiusKm, segments = 48) {
@@ -204,13 +202,12 @@ function getFootprintFeatures() {
   return featuresPromise
 }
 
-/* 样式加载（含换底图 / 主题切换）后重新铺上染色与城市标记 */
+/* 样式加载（含换底图 / 主题切换）后重新铺上染色 */
 async function applyFootprints() {
   if (!map) return
   stripLabels()
   const features = await getFootprintFeatures()
   addAreas(features)
-  addLabels()
   fitFootprints()
 }
 
@@ -220,26 +217,6 @@ function fitFootprints() {
   const bounds = new LngLatBounds()
   FOOTPRINTS.forEach((m) => bounds.extend([m.lng, m.lat]))
   map.fitBounds(bounds, { padding: 64, duration: 0, maxZoom: 7 })
-}
-
-/* 点 + 图：城市中心一个橙色圆点，旁边标注城市名；区域由填充色块表示 */
-function addLabels() {
-  if (!map || labelsAdded) return
-  labelsAdded = true
-  for (const f of FOOTPRINTS) {
-    const el = document.createElement('div')
-    el.className = 'footprint-label'
-    const dot = document.createElement('span')
-    dot.className = 'fp-dot'
-    const name = document.createElement('span')
-    name.className = 'fp-name'
-    name.textContent = f.name
-    el.append(dot, name)
-    const mk = new Marker({ element: el, anchor: 'center' })
-      .setLngLat([f.lng, f.lat])
-      .addTo(map)
-    labelMarkers.push(mk)
-  }
 }
 
 onMounted(() => {
@@ -283,8 +260,6 @@ watch([resolved, providerIndex], () => {
 
 onUnmounted(() => {
   clearTimeout(loadTimer)
-  labelMarkers.forEach((mk) => mk.remove())
-  labelMarkers.length = 0
   if (map?.getLayer('footprint-line')) map.removeLayer('footprint-line')
   if (map?.getLayer('footprint-fill')) map.removeLayer('footprint-fill')
   if (map?.getSource('footprint-areas')) map.removeSource('footprint-areas')
@@ -367,38 +342,6 @@ onUnmounted(() => {
   margin: 0;
   font-size: 12px;
   opacity: 0.75;
-}
-
-/* 点 + 图：城市中心圆点 + 城市名 */
-.footprints-map :deep(.footprint-label) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 11px 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.footprints-map :deep(.fp-dot) {
-  width: 9px;
-  height: 9px;
-  flex: none;
-  border-radius: 50%;
-  background: #ff9f1a;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 2px rgba(255, 159, 26, 0.35);
-}
-.footprints-map :deep(.fp-name) {
-  line-height: 1;
 }
 
 .footprints-map :deep(.maplibregl-ctrl-attrib) {
