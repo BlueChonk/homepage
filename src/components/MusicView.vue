@@ -865,9 +865,8 @@ html[data-theme="dark"] .stage-overlay {
   z-index: 30;
   display: flex;
   justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.35);
-  /* 不使用 backdrop-filter：全屏蒙层带模糊会在滑入/滑出动画中逐帧重采样背景，
-     是播放列表打开/关闭卡顿的主因；纯色半透明叠加视觉相近且仅为合成层操作 */
+  /* 不叠加灰色蒙层：列表以自然侧栏形式滑入，页面保持原有亮度，交互更轻盈；
+     点击蒙层空白处仍可关闭列表 */
 }
 .playlist-drawer {
   display: flex;

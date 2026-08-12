@@ -96,6 +96,13 @@ function cityZhName(raw) {
   return CITY_EN_ZH[s.toLowerCase().replace(/[^a-z]/g, '')] || ''
 }
 
+/* 省/州规范化：去掉“省/市/自治区”等后缀，只保留主体名称 */
+function cleanRegion(r) {
+  return String(r || '')
+    .trim()
+    .replace(/(壮族|回族|维吾尔)自治区$|自治区$|省$|市$/, '')
+}
+
 /* 由坐标反推最近的城市：IP 定位只给了坐标、没给城市名时使用
    （例如访客与站主相距仅 1.3km，必然同属梧州） */
 function inferCityFromCoords(lng, lat) {
@@ -155,7 +162,12 @@ const PROVIDERS = [
         },
       },
       layers: [
-        { id: 'amap', type: 'raster', source: 'amap' },
+        {
+          id: 'amap',
+          type: 'raster',
+          source: 'amap',
+          paint: { 'raster-fade-duration': 0 },
+        },
       ],
     }),
   },
@@ -177,14 +189,17 @@ const ready = ref(false)
 const failed = ref(false)
 const providerIndex = ref(0)
 const expanded = ref(false)
+const fullscreenReady = ref(false)
 const visitor = ref(null)
 const distanceKm = ref(null)
 
-/* 左下角访客地名：定位成功显示中文城市名，未定位时提示定位中 */
-const visitorCityText = computed(() => {
+/* 左下角地名：只显示城市名（不写省） */
+const homePlaceText = '梧州'
+const visitorPlaceText = computed(() => {
   const v = visitor.value
   if (!v || v.lat == null) return ''
-  return resolveVisitorCity(v)
+  const city = (resolveVisitorCity(v) || String(v.city || '')).replace(/[市地区盟]$/, '')
+  return city || String(v.country || '').trim() || '访客'
 })
 
 let loadTimer = 0
@@ -193,6 +208,8 @@ let map = null
 let homeMarker = null
 let visitorMarker = null
 let routeLabelMarker = null
+let visitorRenderQueued = false
+let fsRevealTimer = 0
 
 const container = ref(null)
 
@@ -446,7 +463,7 @@ function settleCamera(routeCoords) {
 function fitBoth() {
   if (!map) return
   const v = visitor.value
-  if (v && v.lat != null) {
+  if (expanded.value && v && v.lat != null) {
     const a = [HOME.lng, HOME.lat]
     const b = [v.lng, v.lat]
     const bounds = new LngLatBounds()
@@ -538,7 +555,7 @@ function cityLabelData() {
     geometry: { type: 'Point', coordinates: [lng, lat] },
   }))
   const v = visitor.value
-  if (v && v.lat != null) {
+  if (expanded.value && v && v.lat != null) {
     features.push({
       type: 'Feature',
       properties: { name: resolveVisitorCity(v) },
@@ -589,6 +606,35 @@ function updateCityLabels() {
   map.getSource('zh-cities')?.setData(cityLabelData())
 }
 
+/* 全屏内容全部就绪（定位 + 虚线 + 距离 + 渲染完成）后再揭示；
+   样式/瓦片异常时兜底最多等待 8 秒 */
+function scheduleFullscreenReveal() {
+  if (!expanded.value || fullscreenReady.value) return
+  clearTimeout(fsRevealTimer)
+  const done = () => {
+    if (expanded.value) fullscreenReady.value = true
+  }
+  if (map) map.once('idle', done)
+  fsRevealTimer = setTimeout(done, 8000)
+}
+
+/* 渲染访客相关内容（绿点 + 虚线 + 距离标签 + 视野）；样式未就绪时由调用方挂起重试 */
+function renderVisitorContent() {
+  if (!map) return
+  if (!map.isStyleLoaded()) {
+    visitorRenderQueued = true
+    return
+  }
+  visitorRenderQueued = false
+  updateCityLabels()
+  /* 默认视图不展示访客；仅全屏时添加绿点、虚线连线与视野 */
+  if (!expanded.value || !visitor.value?.lat) return
+  addVisitorMarker()
+  addRoute()
+  fitBoth()
+  scheduleFullscreenReveal()
+}
+
 /* ===== 标记：仅圆点，不带文字 ===== */
 function addHomeMarker() {
   const el = document.createElement('div')
@@ -618,6 +664,26 @@ function addVisitorMarker() {
 /* ===== 访客定位：IP 多接口兜底（限流/失败自动切换）+ 浏览器精确定位 ===== */
 async function locateVisitor() {
   const probes = [
+    /* 中文优先：ipip.net 返回中文省市（HTTPS + CORS），能看到国内真实出口 IP */
+    {
+      url: 'https://myip.ipip.net',
+      decode: async (res) => await res.text(),
+      parse: (text) => {
+        /* 注意：响应末尾带换行，JS 正则的 . 不匹配换行符，需先 trim */
+        const s = String(text || '').trim()
+        const m = s.match(/来自于[:：]\s*(.+)$/)
+        if (!m) return null
+        const parts = m[1].trim().split(/[\s\u3000]+/).filter(Boolean)
+        if (!parts.length) return null
+        const country = parts[0] || ''
+        const region = cleanRegion(parts[1] || '') || parts[1] || ''
+        const city = String(parts[2] || '').replace(/[市地区盟]$/, '')
+        const zh = cityZhName(city) || city
+        const hit = ZH_CITIES.find(([cn]) => cn === zh)
+        if (!hit) return null
+        return { lat: hit[2], lng: hit[1], city: zh, region, country, source: 'ip' }
+      },
+    },
     /* 中文优先：pconline（HTTPS，GBK 编码）返回中文省市；城市在中文字典里时直接取坐标 */
     {
       url: 'https://whois.pconline.com.cn/ipJson.jsp?json=true',
@@ -629,7 +695,7 @@ async function locateVisitor() {
         const zh = cityZhName(city) || city
         const hit = ZH_CITIES.find(([cn]) => cn === zh)
         return hit
-          ? { lat: hit[2], lng: hit[1], city: zh, country: d.pro, source: 'ip' }
+          ? { lat: hit[2], lng: hit[1], city: zh, region: d.pro, country: '中国', source: 'ip' }
           : null
       },
     },
@@ -642,6 +708,7 @@ async function locateVisitor() {
               lat: d.lat,
               lng: d.lon,
               city: String(d.city || '').replace(/[市地区盟]$/, '') || d.city,
+              region: d.regionName,
               country: d.country,
               source: 'ip',
             }
@@ -653,20 +720,20 @@ async function locateVisitor() {
         const lat = parseFloat(d && d.latitude)
         const lng = parseFloat(d && d.longitude)
         return Number.isFinite(lat) && Number.isFinite(lng)
-          ? { lat, lng, city: d.city, country: d.country, source: 'ip' }
+          ? { lat, lng, city: d.city, region: d.region, country: d.country, source: 'ip' }
           : null
       },
     },
     {
       url: 'https://ipwho.is/',
       parse: (d) => (d && d.success && d.latitude != null
-        ? { lat: d.latitude, lng: d.longitude, city: d.city, country: d.country, source: 'ip' }
+        ? { lat: d.latitude, lng: d.longitude, city: d.city, region: d.region, country: d.country, source: 'ip' }
         : null),
     },
     {
       url: 'https://freeipapi.com/api/json',
       parse: (d) => (d && d.latitude != null
-        ? { lat: d.latitude, lng: d.longitude, city: d.cityName, country: d.countryName, source: 'ip' }
+        ? { lat: d.latitude, lng: d.longitude, city: d.cityName, region: d.regionName, country: d.countryName, source: 'ip' }
         : null),
     },
     {
@@ -675,14 +742,14 @@ async function locateVisitor() {
         if (!d || !d.loc) return null
         const [lat, lng] = d.loc.split(',').map(Number)
         return Number.isFinite(lat) && Number.isFinite(lng)
-          ? { lat, lng, city: d.city, country: d.country, source: 'ip' }
+          ? { lat, lng, city: d.city, region: d.region, country: d.country, source: 'ip' }
           : null
       },
     },
     {
       url: 'https://ipapi.co/json/',
       parse: (d) => (d && d.latitude != null
-        ? { lat: d.latitude, lng: d.longitude, city: d.city, country: d.country_name, source: 'ip' }
+        ? { lat: d.latitude, lng: d.longitude, city: d.city, region: d.region, country: d.country_name, source: 'ip' }
         : null),
     },
   ]
@@ -709,13 +776,19 @@ async function locateVisitor() {
     if (!navigator.geolocation) return resolve()
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        visitor.value = {
-          ...(visitor.value || {}),
+        const gps = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           city: '',
           source: 'gps',
         }
+        const ip = visitor.value
+        /* GPS（网络定位）与 IP 定位差异过大时（例如代理/机房出口），保留更可信的 IP 结果 */
+        if (ip && ip.lat != null && haversineKm(ip.lat, ip.lng, gps.lat, gps.lng) > 200) {
+          resolve()
+          return
+        }
+        visitor.value = gps
         resolve()
       },
       () => resolve(),
@@ -732,7 +805,7 @@ function maybeReveal() {
   if (ready.value) return
   if (loading.value || locating.value) return
   if (map) {
-    if (visitor.value?.lat != null) {
+    if (expanded.value && visitor.value?.lat != null) {
       addVisitorMarker()
       addRoute()
     }
@@ -752,36 +825,46 @@ function startRevealTimer() {
   }, 12000)
 }
 
-/* ===== 视图控制：默认与全屏均为 3D 地球，默认框住两点 ===== */
+/* ===== 视图控制：默认只展示站主；全屏才定位访客并展示两点连线与距离 ===== */
 async function toggleExpand() {
   expanded.value = !expanded.value
   await nextTick()
   applyPixelRatio()
   if (expanded.value) {
-    /* 进入全屏：3D 地球 + 可交互 + 虚线连线与距离 */
+    /* 进入全屏：3D 地球 + 可交互；定位完成后显示绿点、虚线与距离 */
+    fullscreenReady.value = false
     setInteractions(true)
     addNavControl()
     map?.setProjection({ type: 'globe' })
     map?.setPitch(32)
     if (visitor.value?.lat != null) {
-      addVisitorMarker()
-      addRoute()
-      fitBoth()
+      renderVisitorContent()
     } else {
       map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 32, duration: 1800 })
+      if (!locating.value) {
+        locating.value = true
+        locateVisitor().then(() => {
+          locating.value = false
+          /* 定位失败/超时：直接揭示当前可显示的内容 */
+          if (!visitor.value?.lat) scheduleFullscreenReveal()
+        })
+      }
     }
+    /* 兜底：即使访客渲染被样式重建挂起，idle 后就绪也会揭示 */
+    scheduleFullscreenReveal()
   } else {
-    /* 退出全屏：恢复 2D 静态视图，仍保留两点与连接虚线 */
+    /* 退出全屏：恢复 2D 静态视图，只保留站主，移除访客相关显示 */
+    clearTimeout(fsRevealTimer)
+    fullscreenReady.value = false
     removeNavControl()
     setInteractions(false)
     map?.setProjection({ type: 'mercator' })
     map?.setPitch(0)
-    if (visitor.value?.lat != null) {
-      addVisitorMarker()
-      fitBoth()
-    } else {
-      map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 0, duration: 1600 })
-    }
+    removeRoute()
+    visitorMarker?.remove()
+    visitorMarker = null
+    updateCityLabels()
+    map.flyTo({ center: [HOME.lng, HOME.lat], zoom: 6, pitch: 0, duration: 1600 })
   }
 }
 
@@ -811,7 +894,7 @@ onMounted(() => {
     clearTimeout(loadTimer)
     tileErrors = 0
     ensureHomeMarker()
-    if (visitor.value?.lat != null) addVisitorMarker()
+    if (expanded.value && visitor.value?.lat != null) addVisitorMarker()
     applySky()
     applyPixelRatio()
     /* 去掉底图英文标注，换成中文城市标注 */
@@ -826,14 +909,17 @@ onMounted(() => {
     } else {
       removeNavControl()
     }
-    /* 默认视图同样显示两个点 + 连接虚线 */
-    if (visitor.value?.lat != null) addRoute()
+    /* 默认视图只显示站主；全屏时再补访客点与虚线 */
+    if (expanded.value && visitor.value?.lat != null) addRoute()
+    visitorRenderQueued = false
     fitBoth()
   })
   /* 瓦片全部渲染完成才算“地图渲染完成” */
   map.on('idle', () => {
     loading.value = false
     maybeReveal()
+    /* 样式重建期间定位完成的访客，等就绪后补渲染 */
+    if (visitorRenderQueued) renderVisitorContent()
   })
   map.on('error', (e) => {
     if (failed.value) return
@@ -847,10 +933,8 @@ onMounted(() => {
   })
   armLoadTimer()
   startRevealTimer()
-  locateVisitor().then(() => {
-    locating.value = false
-    maybeReveal()
-  })
+  /* 默认视图不定位访客；仅在进入全屏后按需定位 */
+  locating.value = false
 })
 
 watch([resolved, providerIndex], () => {
@@ -882,17 +966,20 @@ watch([resolved, providerIndex], () => {
 
 watch(visitor, () => {
   updateDistance()
-  /* 样式就绪即可更新（无需等瓦片全部加载完，避免访客定位稍慢时被跳过） */
-  if (!map || !map.isStyleLoaded()) return
-  updateCityLabels()
-  addVisitorMarker()
-  addRoute()
-  fitBoth()
+  if (!map) return
+  /* 进入全屏时的投影/样式重建期间 isStyleLoaded 可能短暂为 false，
+     先挂起，等 idle 就绪后再补渲染，避免访客内容被跳过 */
+  if (!map.isStyleLoaded()) {
+    visitorRenderQueued = true
+    return
+  }
+  renderVisitorContent()
 })
 
 onUnmounted(() => {
   clearTimeout(loadTimer)
   clearTimeout(revealTimer)
+  clearTimeout(fsRevealTimer)
   removeRoute()
   visitorMarker?.remove()
   homeMarker?.remove()
@@ -906,7 +993,7 @@ onUnmounted(() => {
   <div
     ref="container"
     class="world-map"
-    :class="{ expanded, 'dark-tiles': darkFilter, ready }"
+    :class="{ expanded, 'dark-tiles': darkFilter, ready, 'fullscreen-ready': fullscreenReady }"
     role="region"
     aria-label="居住地地图"
   >
@@ -914,6 +1001,16 @@ onUnmounted(() => {
       <div class="map-error-emoji">🗺️</div>
       <p class="map-error-main">地图暂时加载失败</p>
       <p class="map-error-hint">请检查网络后刷新页面</p>
+    </div>
+    <!-- 全屏加载：定位 + 虚线连线 + 距离标注 + 渲染全部完成后才展示 -->
+    <div v-else-if="expanded && !fullscreenReady" class="map-overlay">
+      <div class="skeleton-map" aria-hidden="true">
+        <span class="sk"></span>
+        <span class="sk sk-2"></span>
+        <span class="sk sk-3"></span>
+      </div>
+      <span class="map-loading-dot"></span>
+      <span class="overlay-text">{{ locating ? '正在定位访客位置…' : '正在渲染地球…' }}</span>
     </div>
     <!-- 骨架屏：定位完成 + 地图渲染完成前不展示地图内容 -->
     <div v-else-if="!ready" class="map-overlay">
@@ -923,18 +1020,18 @@ onUnmounted(() => {
         <span class="sk sk-3"></span>
       </div>
       <span class="map-loading-dot"></span>
-      <span class="overlay-text">{{ loading ? '地图渲染中…' : '正在定位访客位置…' }}</span>
+      <span class="overlay-text">地图渲染中…</span>
     </div>
 
-    <!-- 左下角：站主（黄点）与访客（绿点）两个城市 -->
+    <!-- 左下角：默认只显示站主省+市；全屏后再显示访客省+市 -->
     <div class="city-label" aria-hidden="true">
       <div class="city-label-row">
         <span class="city-label-dot home"></span>
-        <span class="city-label-text">广西梧州</span>
+        <span class="city-label-text">{{ homePlaceText }}</span>
       </div>
-      <div class="city-label-row">
+      <div v-if="expanded" class="city-label-row">
         <span class="city-label-dot visitor"></span>
-        <span class="city-label-text visitor-text">{{ visitorCityText || '访客 · 定位中…' }}</span>
+        <span class="city-label-text visitor-text">{{ visitorPlaceText || (locating ? '定位中…' : '访客') }}</span>
       </div>
     </div>
 
@@ -1059,6 +1156,10 @@ html[data-theme="dark"] .world-map {
 .world-map:not(.ready) .city-label,
 .world-map:not(.ready) .expand-fab,
 .world-map:not(.ready) .map-exit {
+  display: none;
+}
+/* 全屏加载期间：隐藏未完成的结果（左下角城市标签等），只留骨架屏与缩小按钮 */
+.world-map.expanded:not(.fullscreen-ready) .city-label {
   display: none;
 }
 
