@@ -211,9 +211,42 @@ async function applyFootprints() {
   fitFootprints()
 }
 
-/* 自动框住所有足迹城市 */
+/* 两城市间距离（km，Haversine） */
+function kmBetween(aLat, aLng, bLat, bLng) {
+  const R = 6371
+  const dLat = ((bLat - aLat) * Math.PI) / 180
+  const dLng = ((bLng - aLng) * Math.PI) / 180
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+/* 足迹密集区域：默认视野聚焦足迹最多的区域，而不是一上来展示全中国 */
+function denseFootprintBounds() {
+  const pts = FOOTPRINTS
+  if (pts.length <= 3) return null
+  const MAX_DIST_KM = 450
+  let best = []
+  for (const a of pts) {
+    const near = pts.filter((b) => kmBetween(a.lat, a.lng, b.lat, b.lng) <= MAX_DIST_KM)
+    if (near.length > best.length) best = near
+  }
+  /* 密集簇至少占总数一半（且不少于 4 个），否则退回全图 */
+  if (best.length < Math.max(4, Math.ceil(pts.length / 2))) return null
+  const bounds = new LngLatBounds()
+  best.forEach((m) => bounds.extend([m.lng, m.lat]))
+  return bounds
+}
+
+/* 自动框住足迹：优先聚焦密集区域 */
 function fitFootprints() {
   if (!map || !FOOTPRINTS.length) return
+  const dense = denseFootprintBounds()
+  if (dense) {
+    map.fitBounds(dense, { padding: 64, duration: 0, maxZoom: 8 })
+    return
+  }
   const bounds = new LngLatBounds()
   FOOTPRINTS.forEach((m) => bounds.extend([m.lng, m.lat]))
   map.fitBounds(bounds, { padding: 64, duration: 0, maxZoom: 7 })
