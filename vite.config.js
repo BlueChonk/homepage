@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -126,37 +127,18 @@ export default defineConfig({
       urlBase: '/records',
       test: (f) => /\.md$/i.test(f),
       titleOf: (n) => n.replace(/\.md$/i, ''),
-      mapItem: (name, _url) => {
+      mapItem: (name) => {
         const filePath = path.resolve(__dirname, 'public', 'records', name)
-        let date = ''
-        let excerpt = ''
-        let category = '记录'
-        try {
-          const raw = fs.readFileSync(filePath, 'utf-8')
-          // 提取标题后的第一段作为简介（跳过空行和分隔线）
-          const lines = raw.split('\n')
-          let bodyStart = false
-          let firstPara = ''
-          for (const line of lines) {
-            const t = line.trim()
-            if (!t || /^#{1,3}\s/.test(t) || /^---$/.test(t)) continue
-            if (!bodyStart && !firstPara) { firstPara = t; continue }
-            if (firstPara && !bodyStart) { bodyStart = true }
-            // 尝试从 frontmatter 或首行提取日期
-            if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(t) && !date) { date = t.match(/^\d{4}[-/]\d{2}[-/]\d{2}/)[0] }
-          }
-          excerpt = firstPara ? firstPara.slice(0, 180) : ''
-          // 尝试从文件内容推断分类
-          const catMatch = raw.match(/(?:category|分类)[:\s]+(.+?)(?:\n|$)/i)
-          if (catMatch) category = catMatch[1].trim()
-        } catch { /* ignore */ }
+        const { date, excerpt, category } = extractMeta(filePath)
+        const raw = fs.readFileSync(filePath, 'utf-8')
         return {
           id: name,
           file: `/records/${name}`,
-          title: name.replace(/\.md$/i, ''),
+          title: extractTitle(filePath, name.replace(/\.md$/i, '')),
           category,
           date,
           excerpt,
+          wordCount: countWords(raw),
         }
       },
     }),

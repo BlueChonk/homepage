@@ -1,5 +1,7 @@
 # FRP 内网穿透部署文档
 
+本文档介绍如何使用 FRP（Fast Reverse Proxy）实现内网穿透：涵盖 frps 服务端与 frpc 客户端的 Docker 部署、`frps.toml` 与 `frpc.toml` 配置、Docker 桌面版与公网 IP / 域名接入方式，以及 systemd 托管与常用运维命令。所有命令均经实际验证，替换占位符后即可按步骤直接复现。
+
 ## Docker 镜像
 
 ```bash
