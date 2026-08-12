@@ -797,13 +797,14 @@ async function locateVisitor() {
   })
 }
 
-/* ===== 就绪展示：骨架屏期间不显示地图内容，
-   等“定位完成 + 地图渲染完成”后才一次性展示最终正确结果 ===== */
+/* ===== 就绪展示：非全屏时站主地址是写死的常量，底图渲染完成即可展示（不等待定位）；
+   全屏地球仍等“定位完成 + 渲染完成”再展示 ===== */
 let revealTimer = 0
 
 function maybeReveal() {
   if (ready.value) return
-  if (loading.value || locating.value) return
+  if (loading.value) return
+  if (expanded.value && locating.value) return
   if (map) {
     if (expanded.value && visitor.value?.lat != null) {
       addVisitorMarker()
