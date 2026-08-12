@@ -13,9 +13,8 @@ const toolGroups = [
     title: 'AI 打工团',
     items: [
       { name: 'Codex', desc: '主力生产力，写码如喝水，摸鱼终结者', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
-      { name: 'OpenCode', desc: '黑框框里藏了个程序员', icon: '/icon/opencode.ico', href: 'https://opencode.ai/zh' },
-      { name: '豆包', desc: '豆包不是干粮，是搭子', icon: '/icon/doubao.png', href: 'https://www.doubao.com/chat/' },
       { name: 'Deepseek', desc: '便宜又能打，算力刺客', icon: '/icon/deepseek.svg', href: 'https://chat.deepseek.com/' },
+      { name: '豆包', desc: '豆包不是干粮，是搭子', icon: '/icon/doubao.png', href: 'https://www.doubao.com/chat/' },
     ],
   },
   {
@@ -30,14 +29,13 @@ const toolGroups = [
     title: '环境搬家队',
     items: [
       { name: 'Docker', desc: '一键打包，走哪跑哪', icon: '/icon/docker.ico', href: 'https://www.docker.com/' },
-      { name: 'Ubuntu', desc: '命令行钉子户', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
       { name: 'Miniconda', desc: '给每个项目单独开间房', icon: '/icon/miniconda.ico', href: 'https://docs.anaconda.net.cn/miniconda/' },
+      { name: 'Ubuntu', desc: '命令行钉子户', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
     ],
   },
   {
     title: '数据库观光团',
     items: [
-      { name: 'Navicat Premium', desc: '数据库观光车', icon: '/icon/navicat.ico', href: 'https://www.navicat.com.cn/products/navicat-premium' },
       { name: 'DBX', desc: '一拖七十，数据库大管家', icon: '/icon/dbx.png', href: 'https://dbxio.com/cn' },
     ],
   },
