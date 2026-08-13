@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { Map as MaplibreMap, AttributionControl, LngLatBounds } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTheme } from '../composables/useTheme'
@@ -8,82 +8,41 @@ import '../utils/maplibreWorker'
 
 const { resolved } = useTheme()
 
-/* 瓦片源（多源自动切换）
-   首选高德栅格底图：中文地名最全，点亮城市的视觉与高德一致；
-   高德不可用时回退矢量底图（并自动移除其英文标注）。 */
-const PROVIDERS = [
-  {
-    name: 'amap',
-    style: () => ({
-      version: 8,
-      sources: {
-        amap: {
-          type: 'raster',
-          tiles: [
-            'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-            'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-            'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-            'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-          ],
-          tileSize: 256,
-          maxzoom: 18,
-          attribution: '© 高德地图',
-        },
+/* 底图：仅使用高德栅格（中文地名最全），不再配置其他底图源 */
+function amapStyle() {
+  return {
+    version: 8,
+    sources: {
+      amap: {
+        type: 'raster',
+        tiles: [
+          'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+          'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+          'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+          'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+        ],
+        tileSize: 256,
+        maxzoom: 18,
+        attribution: '© 高德地图',
       },
-      layers: [
-        { id: 'amap-bg', type: 'background', paint: { 'background-color': '#eef0f2' } },
-        { id: 'amap', type: 'raster', source: 'amap' },
-      ],
-    }),
-  },
-  {
-    name: 'carto',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  },
-  {
-    name: 'openfreemap',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
-  },
-]
+    },
+    layers: [
+      { id: 'amap-bg', type: 'background', paint: { 'background-color': '#eef0f2' } },
+      {
+        id: 'amap',
+        type: 'raster',
+        source: 'amap',
+        paint: { 'raster-fade-duration': 0 },
+      },
+    ],
+  }
+}
 
 const loading = ref(true)
 const failed = ref(false)
-const providerIndex = ref(0)
-let loadTimer = 0
-let tileErrors = 0
-
-function styleUrl() {
-  const p = PROVIDERS[providerIndex.value]
-  if (p.style) return p.style()
-  return resolved.value === 'dark' ? p.dark : p.light
-}
 
 /* 高德为浅色栅格，暗色主题时给画布加反色滤镜 */
-const darkFilter = computed(
-  () => resolved.value === 'dark' && PROVIDERS[providerIndex.value]?.name === 'amap'
-)
-
-function armLoadTimer() {
-  clearTimeout(loadTimer)
-  loadTimer = setTimeout(() => {
-    if (!failed.value) tryNextProvider()
-  }, 12000)
-}
-
-function tryNextProvider() {
-  if (failed.value || !map) return
-  providerIndex.value++
-  tileErrors = 0
-  if (providerIndex.value >= PROVIDERS.length) {
-    failed.value = true
-    loading.value = false
-    return
-  }
-  loading.value = true
-  armLoadTimer()
-}
+const darkFilter = computed(() => resolved.value === 'dark')
 
 const container = ref(null)
 let map = null
@@ -178,16 +137,6 @@ function addAreas(features) {
   })
 }
 
-/* 移除底图自带的地名标注图层（矢量底图可用；高德栅格兜底时无此图层） */
-function stripLabels() {
-  if (!map) return
-  for (const layer of map.getStyle().layers) {
-    if (layer.type === 'symbol' && map.getLayer(layer.id)) {
-      map.removeLayer(layer.id)
-    }
-  }
-}
-
 /* 城市边界只拉取一次，主题切换 / 换底图后复用 */
 let featuresPromise = null
 
@@ -202,10 +151,9 @@ function getFootprintFeatures() {
   return featuresPromise
 }
 
-/* 样式加载（含换底图 / 主题切换）后重新铺上染色 */
+/* 样式加载后铺上染色 */
 async function applyFootprints() {
   if (!map) return
-  stripLabels()
   const features = await getFootprintFeatures()
   addAreas(features)
   fitFootprints()
@@ -255,7 +203,7 @@ function fitFootprints() {
 onMounted(() => {
   map = new MaplibreMap({
     container: container.value,
-    style: styleUrl(),
+    style: amapStyle(),
     center: [113.9, 22.6],
     zoom: 6,
     renderWorldCopies: false,
@@ -266,39 +214,24 @@ onMounted(() => {
   map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
   map.on('style.load', applyFootprints)
   map.on('load', () => {
-    clearTimeout(loadTimer)
     loading.value = false
-    tileErrors = 0
     applyFootprints()
   })
   map.on('error', (e) => {
     if (failed.value) return
     const err = e?.error
-    if (e.source || e.tile) {
-      tileErrors++
-      if (tileErrors >= 12) tryNextProvider()
-      return
-    }
-    if (err && !map.loaded() && !failed.value) tryNextProvider()
+    /* 瓦片偶发错误不影响底图；仅当样式加载失败时标记失败 */
+    if (e.source || e.tile) return
+    if (err && !map.loaded() && !failed.value) failed.value = true
   })
-  armLoadTimer()
-})
-
-watch([resolved, providerIndex], () => {
-  const p = PROVIDERS[providerIndex.value]
-  if (map && !failed.value && p && !p.style) {
-    map.setStyle(styleUrl(), { diff: false })
-  }
 })
 
 onUnmounted(() => {
-  clearTimeout(loadTimer)
   if (map?.getLayer('footprint-line')) map.removeLayer('footprint-line')
   if (map?.getLayer('footprint-fill')) map.removeLayer('footprint-fill')
   if (map?.getSource('footprint-areas')) map.removeSource('footprint-areas')
   map?.remove()
   map = null
-  providerIndex.value = 0
 })
 </script>
 
