@@ -1,3 +1,17 @@
+# 2026-08-13
+
+从零开始造了一个 Electron 桌面版音乐播放下载器 [musicgrove](https://github.com/cecilia4412/musicgrove)。
+
+最开始是照着几个开源项目（[AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)、[go-music-dl](https://github.com/guohuiyuan/go-music-dl)、[musicdl](https://github.com/CharlesPikachu/musicdl)）的思路搭架子，打算 Python Flask 后端做下载服务、Electron 做前端壳子分离部署；后来索性把后端整个重写成 TypeScript，塞进 Electron 单包架构里，把 musicdl 里面几个国内音乐源也改成 TS 实现，API、下载、存储一条龙打包在本地，不用开两个服务，干净不少。
+
+# 2026-08-12
+
+在 [homepage](https://github.com/cecilia4412/homepage) 上完成了「居住地 Residence」和「足迹 Footprints」两张地图。
+
+一开始试过三种地图方案：WebGL 3D 球面（maplibre-gl）、纯静态分块渲染（WorldMap）、高德 JS API 直接渲染。试下来高德国内数据完整、中文标注清晰、API 调用简单，最后把另外两个砍了——界面清爽，代码也少了近一千行。
+
+上午做到一半，小区跳闸停电，从中午十二点一直停到晚上十一点半来电。停得干干净净，干脆跑去奶茶店蹭免费空调和免费充电插座，一坐就是大半天。来电后摸了半小时代码，洗洗睡了。
+
 # 2026-08-11
 给 Codex + deepseek-v4-flash 模型，便宜又好用，比腾讯混元 Hy3 效果好太多了，把 [cecilia-shiraseijo](https://github.com/cecilia4412/cecilia-shiraseijo) 从纯静态页面迁到 npm + Vite，顺手做了预渲染和字体子集化——页面不再白屏，字体不再跨域，首屏肉眼可见地变快。
 
