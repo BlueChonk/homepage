@@ -11,6 +11,9 @@ dist
 dist-ssr
 *.local
 
+# npm 生成（锁文件不入库，避免与开发机 npm 版本差异导致无谓冲突）
+package-lock.json
+
 # Python / FastAPI
 __pycache__/
 *.py[cod]
