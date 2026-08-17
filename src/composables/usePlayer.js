@@ -2,8 +2,6 @@ import { ref, computed, watch } from 'vue'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
-// 单例 Audio：不挂在任意组件模板上，因此即使 MusicView 被卸载（切到其他模块），
-// 播放也不会中断，实现“后台继续播放”。
 const audio = new Audio()
 audio.preload = 'none'
 
@@ -16,40 +14,81 @@ const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(0.7)
 let activeSrc = ''
+let activeKey = ''
 let bound = false
 let initialized = false
-// 点击歌词跳转时，若音频元数据尚未就绪，先记下目标时间，等 loadedmetadata 后应用
 let pendingSeek = null
 let pendingRatio = null
 
-// 在线解析状态
 const resolving = ref(false)
 const resolveError = ref('')
 const onlineCover = ref('')
 
+// URL 缓存: { trackKey: { audioUrl, expiresAt, bvid, ... } }
+const resolveCache = new Map()
+
 const currentTrack = computed(() => tracks.value[current.value] || null)
 const total = computed(() => tracks.value.length)
+
+function trackKey(track) {
+  return `${track.title || track.name || ''}|${track.artist || ''}`
+}
 
 function api(path) {
   return `${API_BASE}${path}`
 }
 
-async function resolveOnline(track) {
+function streamSrcOf(entry) {
+  // 服务端返回的路径 token 形式（推荐）：预览环境中间代理会破坏 query 里的
+  // 百分号编码（CDN URL 在 & 处截断 → 403），路径形式不受影响
+  if (entry?.streamUrl) return api(entry.streamUrl)
+  if (entry?.audioUrl) return api(`/api/bbstream?url=${encodeURIComponent(entry.audioUrl)}`)
+  return ''
+}
+
+async function resolveOnline(track, forceRefresh = false) {
   if (!track) return null
   const song = track.title || track.name || ''
   const singer = track.artist || ''
-  const duration = track.duration || 0
+  const dur = track.duration || 0
   if (!song) return null
+
+  const key = trackKey(track)
+  if (!forceRefresh) {
+    const cached = resolveCache.get(key)
+    if (cached && cached.expiresAt > Date.now() && cached.audioUrl) {
+      onlineCover.value = cached.cover || ''
+      return cached
+    }
+  }
 
   resolving.value = true
   resolveError.value = ''
   try {
-    const q = new URLSearchParams({ song, singer, duration: String(duration) })
-    const res = await fetch(api(`/api/resolve?${q.toString()}`), { cache: 'no-store' })
-    const data = await res.json()
-    if (!res.ok || !data?.ok) throw new Error(data?.error || 'B 站解析失败')
+    // POST + JSON body：查询串里的中文会被预览环境的代理解码成裸 UTF-8，
+    // Node HTTP 解析器会直接拒绝（空响应 400），改走请求体可彻底规避
+    const res = await fetch(api('/api/resolve'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ song, singer, duration: dur }),
+      cache: 'no-store',
+    })
+    const text = await res.text()
+    let data = null
+    try {
+      data = JSON.parse(text)
+    } catch {
+      throw new Error(`服务器响应异常 (${res.status})`)
+    }
+    if (!res.ok || !data?.ok) {
+      const msg = data?.error || `B 站解析失败 (${res.status})`
+      throw new Error(msg)
+    }
+    const expiresAt = data.expiresAt || (Date.now() + 4 * 60 * 1000)
+    const entry = { ...data, expiresAt }
+    resolveCache.set(key, entry)
     onlineCover.value = data.cover || ''
-    return data
+    return entry
   } catch (e) {
     resolveError.value = e.message
     onlineCover.value = ''
@@ -89,6 +128,31 @@ function bindAudio() {
     duration.value = audio.duration || duration.value
   })
   audio.addEventListener('pause', () => (playing.value = false))
+
+  audio.addEventListener('error', async () => {
+    const errType = audio.error?.code
+    if (!errType) return
+    const track = currentTrack.value
+    if (!track) return
+
+    const key = trackKey(track)
+    const cached = resolveCache.get(key)
+
+    // code 1/2/3 = 加载中止/网络/解码错误；code 4 = 源不支持（B站URL过期被代理
+    // 映射为 410 时浏览器也报 4）→ 均视为 URL 失效，强制重新解析一次
+    if (errType === 1 || errType === 2 || errType === 3 || errType === 4) {
+      if (!cached) return
+      resolveCache.delete(key)
+      const fresh = await resolveOnline(track, true)
+      const streamUrl = streamSrcOf(fresh)
+      if (streamUrl) {
+        audio.src = streamUrl
+        activeSrc = streamUrl
+        resolveError.value = ''
+        audio.play().catch(() => {})
+      }
+    }
+  })
 }
 
 async function load() {
@@ -124,11 +188,8 @@ async function play(i) {
   const track = currentTrack.value
   if (!track) return
 
-  // 如果当前曲目已经在播放，暂停/恢复
-  const sameTrack = activeSrc && currentTrack.value && (
-    activeSrc.includes(track.title || '') ||
-    activeSrc.includes(track.name || '')
-  )
+  // 同曲判断用 trackKey（streamUrl 是 token 路径，不含歌名）
+  const sameTrack = activeSrc && activeKey === trackKey(track)
   if (sameTrack && !resolving.value) {
     if (audio.paused) {
       audio.play().catch(() => {})
@@ -138,43 +199,35 @@ async function play(i) {
     return
   }
 
-  // 切换曲目：在线解析 + 播放
   audio.pause()
   audio.currentTime = 0
   pendingSeek = null
   progress.value = 0
   currentTime.value = 0
   duration.value = 0
+  activeKey = trackKey(track)
 
-  // 如果有本地音频文件且不需要在线解析（兼容模式）
-  if (track.url) {
-    // 检查是否需要在线解析（通过 manifest 中的 online 字段或默认行为）
-    if (track.online === false) {
-      const base = import.meta.env.BASE_URL || '/'
-      const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
-      audio.src = s
-      activeSrc = s
-      audio.play().catch(() => {})
-      return
-    }
+  if (track.url && track.online === false) {
+    const base = import.meta.env.BASE_URL || '/'
+    const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
+    audio.src = s
+    activeSrc = s
+    audio.play().catch(() => {})
+    return
   }
 
-  // 在线解析 B 站音频
   const result = await resolveOnline(track)
-  if (result && result.audioUrl) {
-    const streamUrl = api(`/api/bbstream?url=${encodeURIComponent(result.audioUrl)}`)
-    audio.src = streamUrl
-    activeSrc = streamUrl
+  const onlineSrc = streamSrcOf(result)
+  if (onlineSrc) {
+    audio.src = onlineSrc
+    activeSrc = onlineSrc
     audio.play().catch(() => {})
-  } else {
-    // 如果有本地音频作为 fallback
-    if (track.url) {
-      const base = import.meta.env.BASE_URL || '/'
-      const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
-      audio.src = s
-      activeSrc = s
-      audio.play().catch(() => {})
-    }
+  } else if (track.url) {
+    const base = import.meta.env.BASE_URL || '/'
+    const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
+    audio.src = s
+    activeSrc = s
+    audio.play().catch(() => {})
   }
 }
 
@@ -237,7 +290,6 @@ function setVolume(v) {
   audio.volume = val
 }
 
-/* ===== 进度条 60fps 直写 ===== */
 const progressListeners = new Set()
 let progressRaf = 0
 
