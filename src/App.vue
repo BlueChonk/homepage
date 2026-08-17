@@ -2,11 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { ConfigProvider, Menu, theme } from 'ant-design-vue'
 import AppHeader from './components/AppHeader.vue'
+import HomeView from './components/HomeView.vue'
 import AboutView from './components/AboutView.vue'
-import AboutMe from './components/AboutMe.vue'
 import AlbumView from './components/AlbumView.vue'
-import RecordsView from './components/RecordsView.vue'
+import NoteView from './components/NoteView.vue'
 import MusicView from './components/MusicView.vue'
+import MiniPlayer from './components/MiniPlayer.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
@@ -24,7 +25,7 @@ function onNavigate(key) {
 
 // 主页(home)与关于我(about)、相册(album)等整页内容，需要随导航区滚动
 const scrollable = computed(
-  () => ['home', 'about', 'album', 'records'].includes(activeView.value)
+  () => ['home', 'about', 'album', 'notes'].includes(activeView.value)
 )
 
 // 应用启动即加载音乐清单，使后台播放（单例 Audio）随时可用，不受模块切换影响
@@ -39,13 +40,14 @@ onMounted(() => usePlayer().load())
 
       <!-- (2) 导航下方的内容区，随导航选择切换 -->
       <div class="app-body" :class="{ scrollable }">
-        <AboutView v-if="activeView === 'home'" />
-        <AboutMe v-else-if="activeView === 'about'" />
+        <HomeView v-if="activeView === 'home'" />
+        <AboutView v-else-if="activeView === 'about'" />
         <AlbumView v-else-if="activeView === 'album'" />
         <MusicView v-else-if="activeView === 'music'" />
-        <RecordsView v-else-if="activeView === 'records'" />
+        <NoteView v-else-if="activeView === 'notes'" />
       </div>
 
+      <MiniPlayer @goto-music="activeView = 'music'" />
     </div>
   </ConfigProvider>
 </template>
@@ -68,6 +70,7 @@ onMounted(() => usePlayer().load())
   display: flex;
   overflow-x: hidden;
   overflow-y: hidden;
+  padding-bottom: 72px;
 }
 
 .app-body > * {
@@ -80,6 +83,7 @@ onMounted(() => usePlayer().load())
 .app-body.scrollable {
   display: block;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 .app-body.scrollable::-webkit-scrollbar {
   width: 9px;

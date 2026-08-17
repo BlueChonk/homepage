@@ -2,7 +2,6 @@
  * homepage 在线音乐后端代理（Node 原生 http，无第三方依赖）。
  *
  * 提供：
- *   GET /api/qq/search?keyword=&type=&page=   -> QQ 音乐搜索列表
  *   GET /api/bili/search?keyword=             -> B 站视频候选
  *   GET /api/resolve?song=&singer=&duration=  -> 按歌名/歌手去 B 站匹配并解析音频直链
  *   GET /api/bbstream?url=                    -> 代理 B 站音频流（支持 Range/seek）
@@ -15,7 +14,6 @@ import http from 'http'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { searchQQ } from './qq.js'
 import { searchBili, previewBili, resolveBest, proxyAudioStream } from './bili.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -114,20 +112,6 @@ async function handleApi(url, req, res) {
 
   if (path === '/api/health') {
     sendJSON(res, 200, { ok: true })
-    return
-  }
-
-  if (path === '/api/qq/search') {
-    const keyword = queryVal(url, 'keyword').trim()
-    if (!keyword) return sendError(res, 400, '缺少 keyword')
-    const type = queryVal(url, 'type', 'song')
-    const page = Number(queryVal(url, 'page', '1')) || 1
-    try {
-      const result = await searchQQ(keyword, type, page)
-      sendJSON(res, 200, { ok: true, ...result })
-    } catch (e) {
-      sendError(res, 500, e.message)
-    }
     return
   }
 

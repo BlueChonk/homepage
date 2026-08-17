@@ -2,33 +2,16 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayer } from '../composables/usePlayer'
 import { useLyrics } from '../composables/useLyrics'
-import { useOnlineMusic } from '../composables/useOnlineMusic'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
   volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
+  resolving, resolveError, onlineCover,
 } = usePlayer()
 
 const {
   lyricLines, lyricAvailable, lyricLoading, activeIndex, seekLyric,
 } = useLyrics()
-
-/* ===== 在线搜索（QQ 音乐列表 + B 站音频在线播放） ===== */
-const online = useOnlineMusic()
-const onlineKeyword = online.keyword
-const onlineResults = online.results
-const onlineLoading = online.loading
-const onlineError = online.error
-const onlinePlayingIndex = online.playingIndex
-const onlinePlaying = online.playing
-const onlineResolving = online.resolving
-const onlineSearch = online.search
-const onlinePlay = online.play
-const onlineStop = online.stop
-const onlineOpen = ref(false)
-
-/* 在线开始播放时，暂停本地播放器，避免两路音频同时出声 */
-watch(onlinePlaying, (on) => { if (on && playing.value) toggle() })
 
 function resolveUrl(u) {
   if (!u) return ''
@@ -36,8 +19,10 @@ function resolveUrl(u) {
   return u.startsWith('/') ? base.replace(/\/$/, '') + u : u
 }
 
-/* 封面：清单中同名封面图（用于沉浸式背景 + 唱片封面），无封面时回退主题渐变 */
-const coverSrc = computed(() => (currentTrack.value?.cover ? resolveUrl(currentTrack.value.cover) : ''))
+const coverSrc = computed(() => {
+  if (onlineCover.value) return onlineCover.value
+  return currentTrack.value?.cover ? resolveUrl(currentTrack.value.cover) : ''
+})
 const coverStyle = computed(() =>
   coverSrc.value ? { backgroundImage: `url("${coverSrc.value}")` } : {}
 )
@@ -46,7 +31,6 @@ const volOpen = ref(false)
 const volDragging = ref(false)
 const listOpen = ref(false)
 
-/* 点击面板外部自动收起音量弹层（与 QQ 音乐一致：再点按钮或点空白处取消） */
 const vClickOutside = {
   mounted(el, binding) {
     el._clickOutside = (e) => {
@@ -59,7 +43,6 @@ const vClickOutside = {
   },
 }
 
-/* ===== 时长 ===== */
 const durations = ref({})
 const durationProbes = []
 
@@ -72,6 +55,7 @@ function formatTime(sec) {
 
 function probeDurations() {
   tracks.value.forEach((t, i) => {
+    if (!t.url) return
     if (durations.value[t.url] || durationProbes[i]) return
     const a = new Audio()
     durationProbes[i] = a
@@ -87,7 +71,6 @@ function probeDurations() {
   })
 }
 
-/* ===== 进度条拖动（指针事件，移动端友好） ===== */
 const scrubbing = ref(false)
 const scrubRatio = ref(null)
 const barRef = ref(null)
@@ -95,7 +78,6 @@ const barFillEl = ref(null)
 const barKnobEl = ref(null)
 let unsubProgress = null
 
-/* 直接写进度条 DOM（60fps），不经过 Vue 重渲染，保证播放时顺滑无卡顿 */
 function paintBar(percent) {
   if (barFillEl.value) barFillEl.value.style.width = percent + '%'
   if (barKnobEl.value) barKnobEl.value.style.left = percent + '%'
@@ -127,7 +109,6 @@ function onBarUp(e) {
   seek({ currentTarget: barRef.value, clientX: e.clientX })
 }
 
-/* ===== 音量 ===== */
 function onVolSeek(e) {
   const rect = e.currentTarget.getBoundingClientRect()
   const ratio = 1 - (e.clientY - rect.top) / rect.height
@@ -162,7 +143,6 @@ const shownTime = computed(() => {
   return currentTime.value
 })
 
-/* ===== 歌词自动滚动：高亮行居中 ===== */
 const lyricBoxRef = ref(null)
 watch(activeIndex, () => {
   requestAnimationFrame(() => {
@@ -170,10 +150,8 @@ watch(activeIndex, () => {
     if (!box) return
     const el = box.querySelectorAll('.lyric-line')[activeIndex.value]
     if (!el) return
-    // .lyrics-inner 已设置 position: relative，offsetTop 相对滚动容器内容计算
     const maxTop = box.scrollHeight - box.clientHeight
     const target = Math.max(0, Math.min(maxTop, el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2))
-    // 大跨度（用户拖进度条/点歌词跳转）用瞬时定位，逐行推进用平滑滚动
     const jump = Math.abs(target - box.scrollTop)
     box.scrollTo({ top: target, behavior: jump > box.clientHeight * 0.6 ? 'auto' : 'smooth' })
   })
@@ -187,7 +165,6 @@ onMounted(() => {
   paintBar(progress.value)
 })
 
-/* 播放清单加载后探测每首歌时长（默认歌曲进入即读取出时间） */
 watch(tracks, () => probeDurations(), { immediate: true })
 
 onUnmounted(() => {
@@ -200,85 +177,14 @@ onUnmounted(() => {
 
 <template>
   <section class="view">
-    <!-- 沉浸背景：铺满整个音乐页（播放器 + 列表融为一体） -->
     <div class="stage-bg" :class="{ cover: !!coverSrc }" :style="coverStyle"></div>
     <div class="stage-overlay"></div>
-
-    <!-- ===== 在线搜索入口（浮动，独立于本地曲库） ===== -->
-    <button
-      class="online-fab"
-      :class="{ active: onlineOpen }"
-      @click.stop="onlineOpen = !onlineOpen"
-      :title="onlineOpen ? '关闭在线搜索' : '在线搜索（QQ · B 站）'"
-      aria-label="在线搜索"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="7"></circle>
-        <path d="m21 21-4.35-4.35"></path>
-      </svg>
-    </button>
-
-    <Transition name="drawer">
-      <div v-if="onlineOpen" class="online-mask" @click.self="onlineOpen = false">
-        <aside class="online-drawer">
-          <div class="drawer-head">
-            <span class="list-title">在线搜索</span>
-            <span class="drawer-count">QQ 音乐 · B 站音频</span>
-            <button class="drawer-close" @click="onlineOpen = false" aria-label="关闭在线搜索">✕</button>
-          </div>
-
-          <div class="online-search-row">
-            <input
-              v-model="onlineKeyword"
-              class="online-input"
-              placeholder="输入歌名或歌手，敲回车搜索"
-              @keyup.enter="onlineSearch()"
-            />
-            <button class="online-go" :disabled="onlineLoading" @click="onlineSearch()">
-              {{ onlineLoading ? '搜索中…' : '搜索' }}
-            </button>
-          </div>
-
-          <div v-if="onlineError" class="online-error">{{ onlineError }}</div>
-          <div v-else-if="!onlineLoading && !onlineResults.length" class="online-empty">
-            <span class="online-empty-emoji">🔎</span>
-            <p>搜索 QQ 音乐曲库，点「播放」试听（音频由 B 站解析）</p>
-          </div>
-
-          <ul v-else class="online-list">
-            <li
-              v-for="(r, i) in onlineResults"
-              :key="i"
-              :class="{ active: i === onlinePlayingIndex && onlinePlaying }"
-              @click="onlinePlay(i)"
-              :title="'在线试听：' + r.name"
-            >
-              <span class="idx">
-                <span v-if="onlineResolving === i" class="spin"></span>
-                <svg v-else-if="i === onlinePlayingIndex && onlinePlaying" viewBox="0 0 24 24" fill="currentColor" class="idx-play"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
-                <svg v-else viewBox="0 0 24 24" fill="currentColor" class="idx-play"><path d="M8 5v14l11-7z"/></svg>
-              </span>
-              <img v-if="r.cover" :src="r.cover" alt="" class="online-cover" loading="lazy" />
-              <span v-else class="online-cover online-cover-note">♪</span>
-              <span class="meta">
-                <span class="name">{{ r.name || '-' }}</span>
-                <span v-if="r.singer" class="by">{{ r.singer }}</span>
-              </span>
-              <span class="duration">{{ formatTime(r.interval) }}</span>
-            </li>
-          </ul>
-
-          <div v-if="onlineLoading" class="online-loading">搜索中…</div>
-        </aside>
-      </div>
-    </Transition>
 
     <template v-if="loading">
       <div class="state">加载中…</div>
     </template>
 
     <template v-else-if="tracks.length">
-      <!-- ===== 主播放区：封面与歌词铺满整个页面 ===== -->
       <div class="player-main">
         <div class="player-hero">
           <div class="hero-left">
@@ -286,6 +192,8 @@ onUnmounted(() => {
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
             </div>
+            <div v-if="resolving" class="resolving-hint">🔍 B 站搜索中…</div>
+            <div v-else-if="resolveError" class="resolve-error">⚠️ {{ resolveError }}</div>
           </div>
 
           <div class="lyrics-zone">
@@ -296,6 +204,7 @@ onUnmounted(() => {
               </span>
               <span v-if="lyricLoading" class="lyrics-state">加载中…</span>
               <span v-else-if="lyricAvailable" class="lyrics-state">点击歌词跳转播放</span>
+              <span v-else class="lyrics-state">在线播放 · 暂无歌词</span>
             </div>
 
             <div v-if="lyricAvailable" ref="lyricBoxRef" class="lyrics-box">
@@ -318,14 +227,13 @@ onUnmounted(() => {
             </div>
 
             <div v-else class="lyrics-empty">
-              <p class="lyrics-empty-main">{{ lyricLoading ? '加载中…' : '暂无歌词' }}</p>
-              <p v-if="!lyricLoading" class="lyrics-empty-hint">将同名 .lrc 文件放入 public/music/ 即可自动显示</p>
+              <p class="lyrics-empty-main">{{ resolving ? '解析中…' : '暂无歌词' }}</p>
+              <p v-if="!lyricLoading && !resolving" class="lyrics-empty-hint">在线模式下不显示歌词</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ===== 底部进度控制条 ===== -->
       <div class="player-bar">
         <div class="seek-row">
           <span class="time">{{ formatTime(shownTime) }}</span>
@@ -348,7 +256,7 @@ onUnmounted(() => {
             <img v-if="coverSrc" :src="coverSrc" alt="" class="bar-cover" />
             <span v-else class="bar-cover bar-cover-note">♪</span>
             <div class="bar-meta">
-              <span class="bar-title" :title="currentTrack.title">{{ currentTrack.title }}</span>
+              <span class="bar-title" :title="currentTrack.title">{{ currentTrack.title || currentTrack.name }}</span>
               <span v-if="currentTrack.artist" class="bar-artist">{{ currentTrack.artist }}</span>
             </div>
           </div>
@@ -394,19 +302,18 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ===== 播放列表抽屉：右下角列表按钮唤起 ===== -->
       <Transition name="drawer">
         <div v-if="listOpen" class="playlist-mask" @click.self="listOpen = false">
           <aside class="playlist-drawer">
             <div class="drawer-head">
-              <span class="list-title">播放列表</span>
-              <span class="drawer-count">{{ tracks.length }} 首</span>
+              <span class="list-title">在线曲库</span>
+              <span class="drawer-count">{{ tracks.length }} 首 · B 站在线播放</span>
               <button class="drawer-close" @click="listOpen = false" aria-label="关闭播放列表">✕</button>
             </div>
             <ul class="list">
               <li
                 v-for="(t, i) in tracks"
-                :key="t.url"
+                :key="t.url || i"
                 :class="{ active: i === current }"
                 @click="play(i)"
               >
@@ -416,11 +323,15 @@ onUnmounted(() => {
                   <span class="idx-num">{{ i + 1 }}</span>
                 </span>
                 <span class="meta">
-                  <span class="name">{{ t.title }}</span>
+                  <span class="name">{{ t.title || t.name }}</span>
                   <span v-if="t.artist" class="by">{{ t.artist }}</span>
                 </span>
-                <span class="duration">{{ formatTime(durations[t.url]) }}</span>
-                <span class="status">{{ i === current ? (playing ? '播放中' : '已暂停') : '' }}</span>
+                <span class="duration">{{ formatTime(t.duration) }}</span>
+                <span class="status">
+                  <span v-if="i === current && resolving">解析中</span>
+                  <span v-else-if="i === current && playing">播放中</span>
+                  <span v-else-if="i === current">已暂停</span>
+                </span>
               </li>
             </ul>
           </aside>
@@ -432,15 +343,14 @@ onUnmounted(() => {
     <template v-else>
       <div class="state empty">
         <div class="empty-emoji">🎵</div>
-        <p>还没有音乐。</p>
-        <p class="hint">把音频放进 <code>public/music/</code>（支持 mp3/wav/ogg/flac/m4a/aac）后，运行 <code>npm run gen:manifest</code> 即可出现在这里。</p>
+        <p>在线曲库暂无歌曲。</p>
+        <p class="hint">编辑 <code>public/music-manifest.jsonl</code> 添加歌曲（仅需标题和歌手），播放时自动从 B 站搜索。</p>
       </div>
     </template>
   </section>
 </template>
 
 <style scoped>
-/* ===== 页面容器：播放器固定、列表独立滚动 ===== */
 .view {
   position: relative;
   height: 100%;
@@ -451,7 +361,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* ===== 沉浸式氛围背景（铺满整个音乐页，无外框） ===== */
 .stage-bg {
   position: absolute;
   inset: 0;
@@ -477,7 +386,20 @@ html[data-theme="dark"] .stage-overlay {
   background: linear-gradient(180deg, rgba(13, 15, 20, 0.7), rgba(13, 15, 20, 0.86));
 }
 
-/* ===== 播放器固定区域 ===== */
+.resolving-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.resolve-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--danger, #e5484d);
+}
+
 .player-main {
   position: relative;
   z-index: 2;
@@ -554,7 +476,6 @@ html[data-theme="dark"] .stage-overlay {
   to { transform: rotate(360deg); }
 }
 
-/* ===== 歌词：无边框沉浸展示 ===== */
 .lyrics-zone {
   min-width: 0;
   align-self: stretch;
@@ -680,7 +601,6 @@ html[data-theme="dark"] .stage-overlay {
   opacity: 0.72;
 }
 
-/* ===== 底部进度控制条 ===== */
 .player-bar {
   position: relative;
   z-index: 2;
@@ -746,7 +666,6 @@ html[data-theme="dark"] .stage-overlay {
   opacity: 1;
 }
 
-/* 控制按钮：左侧歌曲信息，主控居中，音量与列表按钮靠右 */
 .ctrls {
   position: relative;
   display: flex;
@@ -877,7 +796,6 @@ html[data-theme="dark"] .stage-overlay {
   background: var(--accent-soft);
 }
 
-/* ===== 音量 ===== */
 .vol {
   position: relative;
   display: flex;
@@ -944,16 +862,12 @@ html[data-theme="dark"] .stage-overlay {
   color: var(--text-tertiary);
 }
 
-/* ===== 播放列表（独立滚动区域） ===== */
-/* ===== 播放列表抽屉：右下角列表按钮唤起 ===== */
 .playlist-mask {
   position: absolute;
   inset: 0;
   z-index: 30;
   display: flex;
   justify-content: flex-end;
-  /* 不叠加灰色蒙层：列表以自然侧栏形式滑入，页面保持原有亮度，交互更轻盈；
-     点击蒙层空白处仍可关闭列表 */
 }
 .playlist-drawer {
   display: flex;
@@ -996,7 +910,6 @@ html[data-theme="dark"] .stage-overlay {
   border-color: var(--accent-border);
   background: var(--accent-soft);
 }
-/* 抽屉内列表独立滚动 */
 .playlist-drawer .list {
   flex: 1 1 auto;
   min-height: 0;
@@ -1016,7 +929,6 @@ html[data-theme="dark"] .stage-overlay {
   background: var(--accent);
   border-radius: 999px;
 }
-/* 抽屉动画：桌面右侧滑入，移动端底部滑出 */
 .drawer-enter-active,
 .drawer-leave-active {
   transition: transform 0.28s ease, opacity 0.28s ease;
@@ -1062,7 +974,6 @@ html[data-theme="dark"] .stage-overlay {
   cursor: pointer;
   border-radius: 10px;
   margin-bottom: 6px;
-  /* 提高底色不透明度代替逐项模糊：抽屉滑动时不再逐项重采样，背景观感基本不变 */
   background: color-mix(in srgb, var(--surface) 80%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -1184,209 +1095,6 @@ html[data-theme="dark"] .stage-overlay {
   color: var(--text-secondary);
 }
 
-/* ===== 在线搜索 ===== */
-.online-fab {
-  position: absolute;
-  top: 18px;
-  right: 20px;
-  z-index: 32;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-md);
-  transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.15s ease, box-shadow 0.18s ease;
-}
-.online-fab svg {
-  width: 20px;
-  height: 20px;
-}
-.online-fab:hover,
-.online-fab.active {
-  border-color: var(--accent-border);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--accent-soft);
-}
-.online-mask {
-  position: absolute;
-  inset: 0;
-  z-index: 31;
-  display: flex;
-  justify-content: flex-end;
-}
-.online-drawer {
-  display: flex;
-  flex-direction: column;
-  width: min(440px, 92vw);
-  height: 100%;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  padding: 18px 18px 16px;
-}
-.online-search-row {
-  display: flex;
-  gap: 8px;
-  padding: 2px 4px 12px;
-}
-.online-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 13.5px;
-  outline: none;
-  transition: border-color 0.16s, box-shadow 0.16s;
-}
-.online-input:focus {
-  border-color: var(--accent-border);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.online-go {
-  flex: 0 0 auto;
-  height: 38px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff;
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: filter 0.16s, transform 0.15s ease;
-}
-.online-go:hover:not(:disabled) {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-.online-go:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.online-error {
-  flex: none;
-  padding: 10px 12px;
-  margin: 0 4px 10px;
-  font-size: 13px;
-  color: var(--danger, #e5484d);
-  background: color-mix(in srgb, var(--danger-soft, #fdecec) 60%, transparent);
-  border-radius: 10px;
-}
-.online-empty {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--text-tertiary);
-  font-size: 13px;
-  text-align: center;
-  padding: 0 16px;
-}
-.online-empty-emoji {
-  font-size: 34px;
-  opacity: 0.6;
-}
-.online-loading {
-  flex: none;
-  padding: 8px;
-  text-align: center;
-  font-size: 12.5px;
-  color: var(--text-tertiary);
-}
-.online-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-  padding-right: 4px;
-}
-.online-list::-webkit-scrollbar {
-  width: 6px;
-}
-.online-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.online-list::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 999px;
-}
-.online-list li {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 11px 12px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  transition: background 0.15s, border-color 0.15s;
-}
-.online-list li:hover {
-  background: var(--surface-hover);
-}
-.online-list li.active {
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface) 30%);
-  border-color: var(--accent-border);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-.online-list li .idx-play {
-  display: block;
-  color: var(--text-tertiary);
-}
-.online-list li:hover .idx-play,
-.online-list li.active .idx-play {
-  color: var(--accent);
-}
-.online-cover {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: var(--accent-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.online-cover-note {
-  font-size: 17px;
-  color: var(--accent);
-}
-.online-list .meta {
-  flex: 1 1 auto;
-}
-.spin {
-  display: inline-block;
-  width: 15px;
-  height: 15px;
-  border: 2px solid var(--border-light);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: onspin 0.8s linear infinite;
-}
-@keyframes onspin {
-  to { transform: rotate(360deg); }
-}
-
-/* ===== 响应式 ===== */
 @media (max-width: 960px) {
   .player-main {
     padding: 8px 22px 4px;

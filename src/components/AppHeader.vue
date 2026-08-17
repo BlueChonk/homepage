@@ -10,7 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['navigate'])
 
 const items = [
-  { key: 'records', label: 'Note' },
+  { key: 'notes', label: 'Note' },
   { key: 'album', label: 'Album' },
   { key: 'music', label: 'Music' },
   { key: 'about', label: 'About' },

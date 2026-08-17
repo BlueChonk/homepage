@@ -1,5 +1,7 @@
 import { ref, computed, watch } from 'vue'
 
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
 // 单例 Audio：不挂在任意组件模板上，因此即使 MusicView 被卸载（切到其他模块），
 // 播放也不会中断，实现“后台继续播放”。
 const audio = new Audio()
@@ -20,13 +22,41 @@ let initialized = false
 let pendingSeek = null
 let pendingRatio = null
 
+// 在线解析状态
+const resolving = ref(false)
+const resolveError = ref('')
+const onlineCover = ref('')
+
 const currentTrack = computed(() => tracks.value[current.value] || null)
 const total = computed(() => tracks.value.length)
 
-function srcOf(track) {
-  if (!track) return ''
-  const base = import.meta.env.BASE_URL || '/'
-  return track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
+function api(path) {
+  return `${API_BASE}${path}`
+}
+
+async function resolveOnline(track) {
+  if (!track) return null
+  const song = track.title || track.name || ''
+  const singer = track.artist || ''
+  const duration = track.duration || 0
+  if (!song) return null
+
+  resolving.value = true
+  resolveError.value = ''
+  try {
+    const q = new URLSearchParams({ song, singer, duration: String(duration) })
+    const res = await fetch(api(`/api/resolve?${q.toString()}`), { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok || !data?.ok) throw new Error(data?.error || 'B 站解析失败')
+    onlineCover.value = data.cover || ''
+    return data
+  } catch (e) {
+    resolveError.value = e.message
+    onlineCover.value = ''
+    return null
+  } finally {
+    resolving.value = false
+  }
 }
 
 function bindAudio() {
@@ -89,31 +119,71 @@ async function load() {
   }
 }
 
-function play(i) {
+async function play(i) {
   if (i !== undefined) current.value = i
   const track = currentTrack.value
   if (!track) return
-  const s = srcOf(track)
-  // 切换曲目：先停掉当前正在播放的音频，保证同一时刻只有一首在播
-    if (s !== activeSrc) {
+
+  // 如果当前曲目已经在播放，暂停/恢复
+  const sameTrack = activeSrc && currentTrack.value && (
+    activeSrc.includes(track.title || '') ||
+    activeSrc.includes(track.name || '')
+  )
+  if (sameTrack && !resolving.value) {
+    if (audio.paused) {
+      audio.play().catch(() => {})
+    } else {
       audio.pause()
-      audio.currentTime = 0
+    }
+    return
+  }
+
+  // 切换曲目：在线解析 + 播放
+  audio.pause()
+  audio.currentTime = 0
+  pendingSeek = null
+  progress.value = 0
+  currentTime.value = 0
+  duration.value = 0
+
+  // 如果有本地音频文件且不需要在线解析（兼容模式）
+  if (track.url) {
+    // 检查是否需要在线解析（通过 manifest 中的 online 字段或默认行为）
+    if (track.online === false) {
+      const base = import.meta.env.BASE_URL || '/'
+      const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
       audio.src = s
       activeSrc = s
-      pendingSeek = null
-      progress.value = 0
-      currentTime.value = 0
-      duration.value = 0
+      audio.play().catch(() => {})
+      return
     }
-  audio.play().catch(() => {})
+  }
+
+  // 在线解析 B 站音频
+  const result = await resolveOnline(track)
+  if (result && result.audioUrl) {
+    const streamUrl = api(`/api/bbstream?url=${encodeURIComponent(result.audioUrl)}`)
+    audio.src = streamUrl
+    activeSrc = streamUrl
+    audio.play().catch(() => {})
+  } else {
+    // 如果有本地音频作为 fallback
+    if (track.url) {
+      const base = import.meta.env.BASE_URL || '/'
+      const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
+      audio.src = s
+      activeSrc = s
+      audio.play().catch(() => {})
+    }
+  }
 }
 
 function toggle() {
   const track = currentTrack.value
   if (!track) return
   if (!activeSrc) {
-    audio.src = srcOf(track)
-    activeSrc = srcOf(track)
+    play()
+    return
   }
   if (audio.paused) audio.play().catch(() => {})
   else audio.pause()
@@ -137,8 +207,9 @@ function seek(e) {
   const rect = e.currentTarget.getBoundingClientRect()
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   if (!activeSrc) {
-    audio.src = srcOf(track)
-    activeSrc = srcOf(track)
+    play()
+    pendingRatio = ratio
+    return
   }
   if (audio.duration) {
     audio.currentTime = Math.max(0, Math.min(audio.duration, ratio * audio.duration))
@@ -156,7 +227,6 @@ function seekTo(sec) {
     audio.currentTime = Math.min(audio.duration, t)
     currentTime.value = audio.currentTime
   } else {
-    // 元数据未就绪：挂起跳转，待 loadedmetadata 后定位
     pendingSeek = t
   }
 }
@@ -167,7 +237,7 @@ function setVolume(v) {
   audio.volume = val
 }
 
-/* ===== 进度条 60fps 直写：避免 timeupdate（约 4Hz）+ Vue 重渲染造成的视觉卡顿 ===== */
+/* ===== 进度条 60fps 直写 ===== */
 const progressListeners = new Set()
 let progressRaf = 0
 
@@ -178,7 +248,6 @@ function progressLoop() {
   progressRaf = requestAnimationFrame(progressLoop)
 }
 
-/* 只在播放时跑 60fps 循环，暂停/停止后立即停掉，避免无谓空转 */
 watch(playing, (on) => {
   if (on && progressListeners.size && !progressRaf) {
     progressRaf = requestAnimationFrame(progressLoop)
@@ -217,6 +286,9 @@ export function usePlayer() {
     volume,
     currentTrack,
     total,
+    resolving,
+    resolveError,
+    onlineCover,
     load,
     play,
     toggle,

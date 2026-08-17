@@ -119,36 +119,34 @@ export default defineConfig({
         return { name, url, title: base, ...(thumb ? { thumb } : {}) }
       },
     }),
-    // 音乐：public/music/*.mp3|flac… → public/music-manifest.jsonl
-    manifestPlugin({
-      dir: 'music',
-      outFile: 'music-manifest.jsonl',
-      urlBase: '/music',
-      test: (f) => /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(f),
-      // 「歌手 - 歌名.mp3」拆成 artist / title
-      mapItem: (name, url) => {
-        const base = name.replace(/\.[^.]+$/, '')
-        const m = base.match(/^(.+?)\s+-\s+(.+)$/)
-        // 同名 .lrc 存在时，附带 lyric 字段（用于歌词同步显示）
-        const lyricName = base + '.lrc'
-        const lyric = fs.existsSync(path.resolve(__dirname, 'public', 'music', lyricName))
-          ? `/music/${encodeURIComponent(lyricName)}`
-          : ''
-        // 同名封面图（jpg/png/webp/avif/gif）存在时，附带 cover 字段（沉浸式背景 + 唱片封面）
-        const coverExt = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].find((ext) =>
-          fs.existsSync(path.resolve(__dirname, 'public', 'music', `${base}.${ext}`))
-        )
-        const cover = coverExt ? `/music/${encodeURIComponent(`${base}.${coverExt}`)}` : ''
-        return {
-          name,
-          url,
-          title: m ? m[2].trim() : base,
-          artist: m ? m[1].trim() : '',
-          ...(lyric ? { lyric } : {}),
-          ...(cover ? { cover } : {}),
-        }
-      },
-    }),
+    // 音乐：已改为手动维护 public/music-manifest.jsonl（在线 B 站搜索模式）
+    // 不再自动扫描 public/music/ 目录生成清单
+    // manifestPlugin({
+    //   dir: 'music',
+    //   outFile: 'music-manifest.jsonl',
+    //   urlBase: '/music',
+    //   test: (f) => /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(f),
+    //   mapItem: (name, url) => {
+    //     const base = name.replace(/\.[^.]+$/, '')
+    //     const m = base.match(/^(.+?)\s+-\s+(.+)$/)
+    //     const lyricName = base + '.lrc'
+    //     const lyric = fs.existsSync(path.resolve(__dirname, 'public', 'music', lyricName))
+    //       ? `/music/${encodeURIComponent(lyricName)}`
+    //       : ''
+    //     const coverExt = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].find((ext) =>
+    //       fs.existsSync(path.resolve(__dirname, 'public', 'music', `${base}.${ext}`))
+    //     )
+    //     const cover = coverExt ? `/music/${encodeURIComponent(`${base}.${coverExt}`)}` : ''
+    //     return {
+    //       name,
+    //       url,
+    //       title: m ? m[2].trim() : base,
+    //       artist: m ? m[1].trim() : '',
+    //       ...(lyric ? { lyric } : {}),
+    //       ...(cover ? { cover } : {}),
+    //     }
+    //   },
+    // }),
     // 记录：public/records/*.md → public/records-manifest.jsonl
     // 输出结构兼容 RecordsView：{ id, file, title, category, date, excerpt }
     // file 保留原始文件名（不编码），由 RecordsView 用 encodeURI 统一编码
