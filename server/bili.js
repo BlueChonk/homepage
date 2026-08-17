@@ -10,8 +10,16 @@
  */
 import http from 'http'
 import https from 'https'
+import fs from 'fs'
+import path from 'path'
+import crypto from 'crypto'
+import { fileURLToPath } from 'url'
 import { httpGet } from './httpclient.js'
 import { httpsProxyAgent } from './proxy.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const CACHE_DIR = path.resolve(__dirname, '..', '.music_cache')
+const CACHE_MAX_BYTES = 300 * 1024 * 1024
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -320,38 +328,277 @@ export async function resolveBest(bilibili) {
 }
 
 /**
- * 音频流代理：支持 Range（seek），并加上防盗链所需的 UA / Referer。
- * 由 index.js 的 /api/bili/stream 路由调用。
+ * 音频流代理（移植自 musicgrove /api/bili/proxy 的可靠方案）：
+ *
+ * 1. 请求头极简：仅 UA + Referer（+ Range）。多发 Origin / Accept-Encoding /
+ *    Connection 等头会显著提高 B 站 CDN 对同一签名 URL 的 403 概率。
+ * 2. 落盘缓存：首次完整请求（无 Range 或 bytes=0-）边转发边写入本地缓存，
+ *    之后的播放/seek/重播全部从本地文件读取 —— CDN URL 只被打一次，
+ *    彻底规避 B站对同一 URL 短时重复请求的间歇性 403，seek 也变成 O(1)。
+ * 3. 写缓存按全局互斥锁串行化 + 双检，避免并发写坏同一文件。
  */
+class KeyedLock {
+  constructor() {
+    this.tail = Promise.resolve()
+  }
+  run(fn) {
+    const prev = this.tail
+    let release
+    this.tail = new Promise((r) => (release = r))
+    return prev.then(fn).then(
+      (v) => {
+        release()
+        return v
+      },
+      (e) => {
+        release()
+        throw e
+      }
+    )
+  }
+}
+const cacheLock = new KeyedLock()
+
+function cachePathFor(audioUrl) {
+  const key = crypto.createHash('sha1').update(audioUrl).digest('hex')
+  return path.join(CACHE_DIR, key + '.m4s')
+}
+
+/* token -> audioUrl 登记：预览环境的中间代理会破坏 query 里的百分号编码
+ * （CDN URL 在第一个 & 处被截断 → 403），因此音频流改走路径 token */
+const tokenUrls = new Map()
+
+export function registerStreamToken(audioUrl) {
+  const token = crypto.createHash('sha1').update(audioUrl).digest('hex')
+  tokenUrls.set(token, audioUrl)
+  return token
+}
+
+/** 按路径 token 代理音频流：优先本地缓存，其次登记过的 URL 回源 */
+export function proxyAudioStreamByToken(token, clientReq, clientRes) {
+  const cachePath = path.join(CACHE_DIR, token + '.m4s')
+  if (cacheReady(cachePath)) {
+    serveCachedFile(cachePath, clientReq, clientRes)
+    return
+  }
+  const audioUrl = tokenUrls.get(token)
+  if (!audioUrl) {
+    clientRes.writeHead(410, { 'Content-Type': 'application/json; charset=utf-8' })
+    clientRes.end(JSON.stringify({ error: '流标识已失效，请重新解析', expired: true }))
+    return
+  }
+  proxyAudioStream(audioUrl, clientReq, clientRes)
+}
+
+function cacheReady(cachePath) {
+  try {
+    return fs.existsSync(cachePath) && fs.statSync(cachePath).size > 0
+  } catch {
+    return false
+  }
+}
+
+/** 该音频 URL 的字节是否已完整落盘（供 /api/resolve 判断可否直接复用） */
+export function audioCacheReady(audioUrl) {
+  return cacheReady(cachePathFor(audioUrl))
+}
+
+/* 缓存目录超限时删除最旧文件（B站 URL 会过期，缓存自然失效，简单的 LRU 足够） */
+function evictCacheIfNeeded() {
+  try {
+    const files = fs
+      .readdirSync(CACHE_DIR)
+      .filter((f) => f.endsWith('.m4s'))
+      .map((f) => {
+        const p = path.join(CACHE_DIR, f)
+        return { p, size: fs.statSync(p).size, mtime: fs.statSync(p).mtimeMs }
+      })
+    let total = files.reduce((s, f) => s + f.size, 0)
+    if (total <= CACHE_MAX_BYTES) return
+    files.sort((a, b) => a.mtime - b.mtime)
+    for (const f of files) {
+      if (total <= CACHE_MAX_BYTES) break
+      try {
+        fs.rmSync(f.p)
+        total -= f.size
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/* 从本地缓存文件服务请求，支持 Range / seek */
+function serveCachedFile(cachePath, clientReq, clientRes) {
+  const total = fs.statSync(cachePath).size
+  const rangeHeader = clientReq.headers.range || ''
+  if (!rangeHeader) {
+    clientRes.writeHead(200, {
+      'Content-Type': 'audio/mp4',
+      'Content-Length': total,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'no-cache',
+    })
+    fs.createReadStream(cachePath).pipe(clientRes)
+    return
+  }
+  const spec = rangeHeader.replace(/^bytes=/, '')
+  let start, end
+  if (spec.startsWith('-')) {
+    const n = parseInt(spec.slice(1), 10)
+    start = Math.max(0, total - n)
+    end = total - 1
+  } else {
+    const parts = spec.split('-')
+    start = parseInt(parts[0], 10)
+    end = parts[1] ? parseInt(parts[1], 10) : total - 1
+  }
+  if (!(start >= 0 && start < total)) {
+    clientRes.writeHead(416).end()
+    return
+  }
+  end = Math.min(end, total - 1)
+  clientRes.writeHead(206, {
+    'Content-Type': 'audio/mp4',
+    'Content-Length': end - start + 1,
+    'Content-Range': `bytes ${start}-${end}/${total}`,
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-cache',
+  })
+  fs.createReadStream(cachePath, { start, end }).pipe(clientRes)
+}
+
 export function proxyAudioStream(audioUrl, clientReq, clientRes) {
   const parsed = new URL(audioUrl)
-  const mod = parsed.protocol === 'https:' ? https : http
-  const headers = {
-    'User-Agent': UA,
-    Referer: 'https://www.bilibili.com/',
-  }
-  // 透传客户端的 Range 头，实现拖动
-  if (clientReq.headers.range) headers['Range'] = clientReq.headers.range
 
-  const upstream = mod.request(
-    parsed,
-    { method: 'GET', headers, agent: parsed.protocol === 'https:' ? httpsProxyAgent() : undefined },
-    (res) => {
-    const clientHeaders = {
-      'Content-Type': res.headers['content-type'] || 'application/octet-stream',
-      'Accept-Ranges': res.headers['accept-ranges'] || 'bytes',
-      'Cache-Control': 'no-cache',
-    }
-    if (res.headers['content-length']) {
-      clientHeaders['Content-Length'] = res.headers['content-length']
-    }
-    if (res.headers['content-range']) {
-      clientHeaders['Content-Range'] = res.headers['content-range']
-    }
-    clientRes.writeHead(res.statusCode || 200, clientHeaders)
-    res.pipe(clientRes)
-  })
-  upstream.on('error', () => clientRes.end())
-  upstream.end()
-  return upstream
+  // 仅允许 B 站音视频 CDN（.bilivideo.com / .bilivideo.cn），防 SSRF
+  if (!/bilivideo\.(com|cn)$/i.test(parsed.hostname)) {
+    clientRes.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' })
+    clientRes.end(JSON.stringify({ error: 'host not allowed' }))
+    return
+  }
+
+  const cachePath = cachePathFor(audioUrl)
+
+  // 命中缓存：直接读盘（含 Range/seek）
+  if (cacheReady(cachePath)) {
+    serveCachedFile(cachePath, clientReq, clientRes)
+    return
+  }
+
+  // 未命中：串行化回源，避免并发写同一缓存文件
+  cacheLock
+    .run(async () => {
+      // 双检：等锁期间可能已被其他请求写满
+      if (cacheReady(cachePath)) {
+        serveCachedFile(cachePath, clientReq, clientRes)
+        return
+      }
+
+      // 极简请求头（多发头会提高 B 站 CDN 403 概率）
+      const headers = {
+        'User-Agent': UA,
+        Referer: 'https://www.bilibili.com/',
+      }
+      const rangeHeader = clientReq.headers.range || ''
+      if (rangeHeader) headers['Range'] = rangeHeader
+
+      const mod = parsed.protocol === 'https:' ? https : http
+      const upstream = await new Promise((resolve, reject) => {
+        const req = mod.request(
+          parsed,
+          { method: 'GET', headers, timeout: 20000, agent: parsed.protocol === 'https:' ? httpsProxyAgent() : undefined },
+          (res) => resolve(res)
+        )
+        req.on('error', reject)
+        req.end()
+      })
+
+      if (upstream.statusCode === 403 || upstream.statusCode === 404) {
+        upstream.destroy()
+        clientRes.writeHead(410, { 'Content-Type': 'application/json; charset=utf-8' })
+        clientRes.end(JSON.stringify({ error: '音频链接已过期，请刷新重试', expired: true }))
+        return
+      }
+
+      const status = upstream.statusCode || 200
+      const upstreamCT = upstream.headers['content-type'] || ''
+      const outCT = /octet-stream/i.test(upstreamCT) || !upstreamCT ? 'audio/mp4' : upstreamCT
+
+      // 仅当「完整下载」(无 Range 或 bytes=0-) 才落盘缓存
+      const wantCache = !rangeHeader || rangeHeader.trim().toLowerCase() === 'bytes=0-'
+      const tmpPath = cachePath + '.part'
+      let file = null
+      if (wantCache) {
+        try {
+          fs.mkdirSync(CACHE_DIR, { recursive: true })
+          file = fs.createWriteStream(tmpPath)
+        } catch {
+          file = null
+        }
+      }
+
+      clientRes.writeHead(status, {
+        'Content-Type': outCT,
+        ...(upstream.headers['content-length'] ? { 'Content-Length': upstream.headers['content-length'] } : {}),
+        ...(upstream.headers['content-range'] ? { 'Content-Range': upstream.headers['content-range'] } : {}),
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache',
+      })
+
+      upstream.on('data', (c) => {
+        if (!clientRes.destroyed) clientRes.write(c)
+        if (file) file.write(c)
+      })
+      upstream.on('end', () => {
+        try {
+          clientRes.end()
+        } catch {
+          /* ignore */
+        }
+        if (file) {
+          file.end()
+          // 结束后统一改名落盘 + 容量淘汰
+          file.on('close', () => {
+            try {
+              fs.renameSync(tmpPath, cachePath)
+              evictCacheIfNeeded()
+            } catch {
+              try {
+                fs.rmSync(tmpPath)
+              } catch {
+                /* ignore */
+              }
+            }
+          })
+        }
+      })
+      upstream.on('error', () => {
+        try {
+          clientRes.end()
+        } catch {
+          /* ignore */
+        }
+        if (file) {
+          file.destroy()
+          try {
+            fs.rmSync(tmpPath)
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+    })
+    .catch(() => {
+      if (!clientRes.headersSent) {
+        clientRes.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' })
+      }
+      try {
+        clientRes.end(JSON.stringify({ error: '音频代理请求失败' }))
+      } catch {
+        /* ignore */
+      }
+    })
 }

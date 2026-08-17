@@ -14,7 +14,7 @@ import http from 'http'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { searchBili, previewBili, resolveBest, proxyAudioStream } from './bili.js'
+import { searchBili, previewBili, resolveBest, proxyAudioStream, proxyAudioStreamByToken, registerStreamToken, audioCacheReady } from './bili.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '..', 'dist')
@@ -107,8 +107,36 @@ function queryVal(url, key, fallback = '') {
   return v == null ? fallback : v
 }
 
+/* 读取 JSON 请求体（带大小上限保护） */
+function readJSONBody(req, limit = 32 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0
+    const chunks = []
+    req.on('data', (c) => {
+      size += c.length
+      if (size > limit) {
+        reject(new Error('请求体过大'))
+        req.destroy()
+        return
+      }
+      chunks.push(c)
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}'))
+      } catch {
+        resolve({})
+      }
+    })
+    req.on('error', reject)
+  })
+}
+
 async function handleApi(url, req, res) {
   const path = url.pathname
+
+  // 解析结果缓存: `${song}|${singer}` -> resolve 产物（配合磁盘音频缓存复用）
+  const resolveCache = handleApi._resolveCache || (handleApi._resolveCache = new Map())
 
   if (path === '/api/health') {
     sendJSON(res, 200, { ok: true })
@@ -116,7 +144,12 @@ async function handleApi(url, req, res) {
   }
 
   if (path === '/api/bili/search') {
-    const keyword = queryVal(url, 'keyword').trim()
+    // POST + JSON body 为主（避免查询串中文被中间代理解码为裸 UTF-8 导致 400），GET 兼容保留
+    let keyword = queryVal(url, 'keyword').trim()
+    if (req.method === 'POST') {
+      const body = await readJSONBody(req)
+      keyword = String(body.keyword || '').trim()
+    }
     if (!keyword) return sendError(res, 400, '缺少 keyword')
     try {
       const items = await searchBili(keyword)
@@ -128,15 +161,43 @@ async function handleApi(url, req, res) {
   }
 
   if (path === '/api/resolve') {
-    const song = queryVal(url, 'song').trim()
-    const singer = queryVal(url, 'singer').trim()
-    const duration = Number(queryVal(url, 'duration', '0')) || 0
+    let song = queryVal(url, 'song').trim()
+    let singer = queryVal(url, 'singer').trim()
+    let duration = Number(queryVal(url, 'duration', '0')) || 0
+    if (req.method === 'POST') {
+      const body = await readJSONBody(req)
+      song = String(body.song || '').trim()
+      singer = String(body.singer || '').trim()
+      duration = Number(body.duration) || 0
+    }
+    if (!song) return sendError(res, 400, '缺少歌曲名 song 参数')
+
+    // 命中「已落盘」的解析结果直接复用：B 站每次 resolve 都换签名 URL，
+    // 新 URL 重新打 CDN 易触发 403；音频字节已在本地缓存时无需再碰 B 站
+    const cacheKey = `${song}|${singer}`
+    const cachedEntry = resolveCache.get(cacheKey)
+    if (cachedEntry && audioCacheReady(cachedEntry.audioUrl)) {
+      registerStreamToken(cachedEntry.audioUrl)
+      sendJSON(res, 200, { ok: true, ...cachedEntry, cached: true })
+      return
+    }
+
     try {
       const audio = await resolveBest({ song, singer, duration })
-      if (!audio) return sendError(res, 404, '未能在 B 站匹配到可播放的音频')
+      if (!audio) return sendError(res, 404, `B 站未找到"${song}"的匹配音频，请换关键词`)
+      audio.expiresAt = Date.now() + 4 * 60 * 1000
+      audio.streamUrl = `/api/bbstream/${registerStreamToken(audio.audioUrl)}`
+      resolveCache.set(cacheKey, audio)
       sendJSON(res, 200, { ok: true, ...audio })
     } catch (e) {
-      sendError(res, 500, e.message)
+      const msg = e.message || String(e)
+      if (msg.includes('timeout') || msg.includes('ETIMEDOUT')) {
+        return sendError(res, 504, 'B 站接口超时，请重试')
+      }
+      if (msg.includes('403')) {
+        return sendError(res, 502, 'B 站拒绝访问，请稍后重试')
+      }
+      sendError(res, 500, msg)
     }
     return
   }
@@ -162,12 +223,29 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
   // CORS 预检
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' })
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    })
     res.end()
     return
   }
 
-  // 音频流代理：流式转发，支持 Range
+  // 音频流代理（token 路径形式）：预览环境的中间代理会破坏 query 里的
+  // 百分号编码（CDN URL 在 & 处截断 → 403），路径 token 不受影响
+  if (req.method === 'GET' && url.pathname.startsWith('/api/bbstream/')) {
+    const token = url.pathname.slice('/api/bbstream/'.length).replace(/[^a-f0-9]/gi, '')
+    if (!token) return sendError(res, 400, '缺少流标识')
+    try {
+      proxyAudioStreamByToken(token, req, res)
+    } catch (e) {
+      sendError(res, 500, e.message)
+    }
+    return
+  }
+
+  // 音频流代理（兼容旧 query 形式）
   if (req.method === 'GET' && url.pathname === '/api/bbstream') {
     const streamUrl = queryVal(url, 'url')
     if (!streamUrl) return sendError(res, 400, '缺少 url')
@@ -179,7 +257,7 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (req.method === 'GET' && url.pathname.startsWith('/api/')) {
+  if ((req.method === 'GET' || req.method === 'POST') && url.pathname.startsWith('/api/')) {
     try {
       await handleApi(url, req, res)
     } catch (e) {
