@@ -10,10 +10,10 @@ const props = defineProps({
 const emit = defineEmits(['navigate'])
 
 const items = [
-  { key: 'records', label: '记录' },
-  { key: 'album', label: '相册' },
-  { key: 'music', label: '音乐' },
-  { key: 'about', label: '关于' },
+  { key: 'records', label: 'Note' },
+  { key: 'album', label: 'Album' },
+  { key: 'music', label: 'Music' },
+  { key: 'about', label: 'About' },
 ]
 
 const { currentTrack, playing, volume, toggle, next, seek, setVolume, load, onProgress } = usePlayer()
