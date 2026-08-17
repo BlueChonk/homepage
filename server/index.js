@@ -12,10 +12,83 @@
  * dev 环境由 Vite 将 /api 反代到本服务，前端同源访问。
  */
 import http from 'http'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { searchQQ } from './qq.js'
 import { searchBili, previewBili, resolveBest, proxyAudioStream } from './bili.js'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DIST_DIR = path.resolve(__dirname, '..', 'dist')
+
 const PORT = Number(process.env.PORT || 8787)
+
+// MIME 类型映射（静态站点）
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.jsonl': 'application/x-ndjson; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.svg': 'image/svg+xml',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json',
+}
+
+const BYPASS_STATIC = /\.(js|mjs|css|json|jsonl|png|jpe?g|gif|webp|avif|svg|mp3|m4a|aac|flac|wav|ogg|woff2|map)$/i
+
+function serveStatic(clientRes, url) {
+  if (!fs.existsSync(DIST_DIR)) {
+    clientRes.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' })
+    clientRes.end('前端尚未构建：请先运行 npm run build')
+    return
+  }
+  // 解析相对路径（保持 . 表示根 —— vite base 为 ./）
+  const rel = url.pathname.replace(/^\/+/, '')
+  let filePath = path.normalize(path.join(DIST_DIR, rel))
+  // 路径穿越防护
+  if (!filePath.startsWith(DIST_DIR)) {
+    clientRes.writeHead(403).end('Forbidden')
+    return
+  }
+  let abs = filePath
+  try {
+    if (fs.statSync(abs).isDirectory()) {
+      abs = path.join(abs, 'index.html')
+    }
+  } catch {
+    // 不存在则走 SPA 回退
+  }
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+    // SPA 回退：非文件资源（去掉扩展名的路由）一律给 index.html
+    if (!BYPASS_STATIC.test(abs)) abs = path.join(DIST_DIR, 'index.html')
+    if (!fs.existsSync(abs)) {
+      clientRes.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found')
+      return
+    }
+  }
+  const ext = path.extname(abs).toLowerCase()
+  clientRes.writeHead(200, {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Cache-Control': BYPASS_STATIC.test(abs)
+      ? 'public, max-age=604800, immutable'
+      : 'no-cache',
+  })
+  fs.createReadStream(abs).pipe(clientRes)
+}
 
 function sendJSON(res, code, data) {
   const body = JSON.stringify(data)
@@ -131,9 +204,15 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
+  // 静态站点托管（npm run build 产物）+ SPA 回退
+  if (req.method === 'GET') {
+    serveStatic(res, url)
+    return
+  }
+
   sendError(res, 404, 'Not Found')
 })
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[online-music] server listening on http://127.0.0.1:${PORT}`)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[online-music] server listening on http://0.0.0.0:${PORT}`)
 })
