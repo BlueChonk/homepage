@@ -69,51 +69,42 @@ const vClickOutside = {
 </script>
 
 <template>
-  <div v-if="currentTrack" class="mini-player">
-    <div class="mini-inner">
-      <div class="mini-track" @click="$emit('goto-music')">
-        <div class="mini-cover" :class="{ spinning: playing }">
+  <transition name="mp-pop">
+    <div v-if="currentTrack" class="mini-player">
+      <div class="mp-head" @click="$emit('goto-music')">
+        <div class="mp-cover" :class="{ spinning: playing }">
           <img v-if="coverSrc" :src="coverSrc" alt="" />
-          <span v-else class="mini-note">♪</span>
+          <span v-else class="mp-note">♪</span>
         </div>
-        <div class="mini-meta">
-          <span class="mini-title" :title="currentTrack.title">{{ currentTrack.title || currentTrack.name }}</span>
-          <span v-if="currentTrack.artist" class="mini-artist">{{ currentTrack.artist }}</span>
-          <span v-if="resolving" class="mini-state">🔍 B 站搜索中…</span>
-          <span v-else-if="resolveError" class="mini-state error">⚠️ {{ resolveError }}</span>
-        </div>
-      </div>
-
-      <div class="mini-center">
-        <div class="mini-ctrs">
-          <button class="mbtn" @click="prev" title="上一首">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-          </button>
-          <button class="mbtn play" @click="toggle" :title="playing ? '暂停' : '播放'">
-            <svg v-if="playing" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
-            <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-          </button>
-          <button class="mbtn" @click="next" title="下一首">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm9-12h2v12h-2z" /></svg>
-          </button>
-        </div>
-
-        <div class="mini-seek">
-          <span class="mini-time">{{ formatTime(currentTime) }}</span>
-          <div
-            ref="barRef"
-            class="mini-bar"
-            @pointerdown="onBarDown"
-          >
-            <div class="mini-bar-fill" :style="{ width: progressPct + '%' }"></div>
-          </div>
-          <span class="mini-time">{{ formatTime(duration) }}</span>
+        <div class="mp-meta">
+          <span class="mp-title" :title="currentTrack.title">{{ currentTrack.title || currentTrack.name }}</span>
+          <span v-if="currentTrack.artist" class="mp-artist">{{ currentTrack.artist }}</span>
+          <span v-if="resolving" class="mp-state">🔍 B 站搜索中…</span>
+          <span v-else-if="resolveError" class="mp-state error">⚠️ {{ resolveError }}</span>
         </div>
       </div>
 
-      <div class="mini-right">
-        <div class="mini-vol" v-click-outside="() => (volOpen = false)">
-          <button class="mbtn vol" @click="volOpen = !volOpen" :title="volume === 0 ? '取消静音' : '音量'">
+      <div class="mp-seek">
+        <span class="mp-time">{{ formatTime(currentTime) }}</span>
+        <div ref="barRef" class="mp-bar" @pointerdown="onBarDown">
+          <div class="mp-bar-fill" :style="{ width: progressPct + '%' }"></div>
+        </div>
+        <span class="mp-time">{{ formatTime(duration) }}</span>
+      </div>
+
+      <div class="mp-ctrs">
+        <button class="mpbtn" @click="prev" title="上一首">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+        </button>
+        <button class="mpbtn play" @click="toggle" :title="playing ? '暂停' : '播放'">
+          <svg v-if="playing" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
+          <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+        </button>
+        <button class="mpbtn" @click="next" title="下一首">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm9-12h2v12h-2z" /></svg>
+        </button>
+        <div class="mp-vol" v-click-outside="() => (volOpen = false)">
+          <button class="mpbtn" @click="volOpen = !volOpen" :title="volume === 0 ? '取消静音' : '音量'">
             <svg v-if="volume === 0" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4L15.2 10.6 12.5 7.9 11 9.3l2.7 2.7L11 14.7l1.5 1.4 2.7-2.7 2.7 2.7 1.4-1.4z" /></svg>
             <svg v-else-if="volume < 0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12z" /></svg>
             <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12zm-2-8.2v2.1a6 6 0 010 12.2v2.1A8 8 0 0014 3.8z" /></svg>
@@ -128,52 +119,46 @@ const vClickOutside = {
         </div>
       </div>
     </div>
-  </div>
+  </transition>
 </template>
 
 <style scoped>
 .mini-player {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  top: 88px;
+  right: 16px;
   z-index: 100;
+  width: 300px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.mini-inner {
+.mp-head {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-  min-height: 64px;
-}
-
-.mini-track {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  flex: 0 1 auto;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 2px;
   border-radius: 10px;
   transition: background 0.18s ease;
 }
-.mini-track:hover {
+.mp-head:hover {
   background: var(--accent-soft);
 }
 
-.mini-cover {
+.mp-cover {
   width: 48px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   flex: 0 0 auto;
   background: var(--surface-hover);
@@ -182,15 +167,15 @@ const vClickOutside = {
   align-items: center;
   justify-content: center;
 }
-.mini-cover img {
+.mp-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.mini-cover.spinning img {
+.mp-cover.spinning img {
   animation: spin 8s linear infinite;
 }
-.mini-note {
+.mp-note {
   font-size: 18px;
   color: var(--text-tertiary);
 }
@@ -198,113 +183,50 @@ const vClickOutside = {
   to { transform: rotate(360deg); }
 }
 
-.mini-meta {
+.mp-meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  max-width: 200px;
+  line-height: 1.3;
 }
-.mini-title {
-  font-size: 14px;
+.mp-title {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mini-artist {
+.mp-artist {
   font-size: 12px;
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mini-state {
+.mp-state {
   font-size: 11px;
   color: var(--accent);
 }
-.mini-state.error {
+.mp-state.error {
   color: #e5484d;
 }
 
-.mini-center {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.mini-ctrs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mbtn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s ease;
-}
-.mbtn:hover {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.mbtn svg {
-  width: 18px;
-  height: 18px;
-}
-.mbtn.play {
-  width: 44px;
-  height: 44px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff;
-  box-shadow: 0 4px 14px var(--accent-soft);
-}
-.mbtn.play:hover {
-  filter: brightness(1.08);
-  transform: scale(1.05);
-}
-.mbtn.play svg {
-  width: 22px;
-  height: 22px;
-}
-.mbtn.vol {
-  width: 32px;
-  height: 32px;
-}
-.mbtn.vol svg {
-  width: 16px;
-  height: 16px;
-}
-
-.mini-seek {
+.mp-seek {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: 500px;
 }
-
-.mini-time {
+.mp-time {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
-  min-width: 32px;
+  min-width: 30px;
   text-align: center;
 }
-
-.mini-bar {
+.mp-bar {
   flex: 1 1 auto;
   height: 4px;
   background: var(--border-light);
@@ -313,26 +235,63 @@ const vClickOutside = {
   position: relative;
   transition: height 0.15s ease;
 }
-.mini-bar:hover {
+.mp-bar:hover {
   height: 6px;
 }
-.mini-bar-fill {
+.mp-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-strong));
   border-radius: 999px;
   transition: width 0.1s linear;
 }
 
-.mini-right {
-  flex: 0 1 auto;
+.mp-ctrs {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
-.mini-vol {
+.mpbtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+.mpbtn:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.mpbtn svg {
+  width: 18px;
+  height: 18px;
+}
+.mpbtn.play {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  box-shadow: 0 4px 14px var(--accent-soft);
+}
+.mpbtn.play:hover {
+  filter: brightness(1.08);
+  transform: scale(1.05);
+}
+.mpbtn.play svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mp-vol {
   position: relative;
 }
-
 .vol-pop {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -393,47 +352,26 @@ const vClickOutside = {
   color: var(--text-tertiary);
 }
 
-@media (max-width: 768px) {
-  .mini-inner {
-    padding: 6px 12px;
-    gap: 8px;
-  }
-  .mini-meta {
-    max-width: 100px;
-  }
-  .mini-cover {
-    width: 40px;
-    height: 40px;
-  }
-  .mbtn {
-    width: 32px;
-    height: 32px;
-  }
-  .mbtn.play {
-    width: 40px;
-    height: 40px;
-  }
-  .mbtn svg {
-    width: 16px;
-    height: 16px;
-  }
-  .mbtn.play svg {
-    width: 20px;
-    height: 20px;
-  }
-  .mini-seek {
-    max-width: 200px;
-  }
+/* 入场动画 */
+.mp-pop-enter-active,
+.mp-pop-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.mp-pop-enter-from,
+.mp-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
-@media (max-width: 520px) {
-  .mini-right {
-    display: none;
+@media (max-width: 640px) {
+  .mini-player {
+    top: 76px;
+    right: 8px;
+    left: auto;
+    width: 248px;
+    padding: 10px;
   }
-  .mini-meta {
-    max-width: 80px;
-  }
-  .mini-artist {
+  .mp-vol {
     display: none;
   }
 }

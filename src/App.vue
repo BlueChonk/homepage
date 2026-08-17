@@ -70,7 +70,6 @@ onMounted(() => usePlayer().load())
   display: flex;
   overflow-x: hidden;
   overflow-y: hidden;
-  padding-bottom: 72px;
 }
 
 .app-body > * {
