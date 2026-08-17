@@ -1,11 +1,11 @@
 <script setup>
 import { ref, h, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import MarkdownPreview from './MarkdownPreview.vue'
-import PhoebePoke from './PhoebePoke.vue'
-import CialloGreet from './CialloGreet.vue'
-import AppFooter from './AppFooter.vue'
-import GlobeMap from './GlobeMap.vue'
-import FootprintsMap from './FootprintsMap.vue'
+import MarkdownPreview from '../components/common/MarkdownPreview.vue'
+import PhoebePoke from '../components/audio/PhoebePoke.vue'
+import CialloGreet from '../components/audio/CialloGreet.vue'
+import AppFooter from '../components/common/AppFooter.vue'
+import GlobeMap from '../components/map/GlobeMap.vue'
+import FootprintsMap from '../components/map/FootprintsMap.vue'
 
 const phrases = [
   '热爱二次元的技术宅',
@@ -42,12 +42,45 @@ function tick() {
 
 onMounted(() => {
   timer = setTimeout(tick, 400)
+  feedTitleTimer = setTimeout(cycleFeedTitle, 600)
 })
-onUnmounted(() => clearTimeout(timer))
+onUnmounted(() => {
+  clearTimeout(timer)
+  clearTimeout(feedTitleTimer)
+})
 
 const hobbies = []
 
-/* 我的日志模块：默认只显示最近 2 条，可切换为显示全部 */
+/* Feed 标题动态切换：在多个英文词间轮播 */
+const feedTitles = ['Feed', 'Logs', 'Updates', 'Posts']
+const feedTitle = ref('Feed')
+let feedTitleTimer = null
+let feedTitleIdx = 0
+let feedCharIdx = 0
+let feedDeleting = false
+
+function cycleFeedTitle() {
+  const cur = feedTitles[feedTitleIdx]
+  if (!feedDeleting) {
+    feedCharIdx++
+    feedTitle.value = cur.slice(0, feedCharIdx)
+    if (feedCharIdx >= cur.length) {
+      feedDeleting = true
+      feedTitleTimer = setTimeout(cycleFeedTitle, 1800)
+      return
+    }
+  } else {
+    feedCharIdx--
+    feedTitle.value = cur.slice(0, feedCharIdx)
+    if (feedCharIdx <= 0) {
+      feedDeleting = false
+      feedTitleIdx = (feedTitleIdx + 1) % feedTitles.length
+    }
+  }
+  feedTitleTimer = setTimeout(cycleFeedTitle, feedDeleting ? 40 : 90)
+}
+
+/* Feed 模块：默认只显示最近 2 条，可切换为显示全部 */
 const showAllLogs = ref(false)
 function toggleLogMode() {
   showAllLogs.value = !showAllLogs.value
@@ -72,7 +105,7 @@ onMounted(async () => {
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}feeds.md`, { cache: 'no-cache' })
     const md = await res.text()
-    myLogs.value = parseDailyLog(md).sort((a, b) =>
+    myLogs.value = parseFeed(md).sort((a, b) =>
       dateKey(b.date).localeCompare(dateKey(a.date))
     )
   } catch (e) {
@@ -83,8 +116,8 @@ onMounted(async () => {
   }
 })
 
-/* 解析 daily-log.md：以 "# 日期" 为分隔，标题下的连续文本作为该日正文。 */
-function parseDailyLog(md) {
+/* 解析 feeds.md：以 "# 日期" 为分隔，标题下的连续文本作为该日正文。 */
+function parseFeed(md) {
   const logs = []
   let cur = null
   const flush = () => {
@@ -159,11 +192,11 @@ onUnmounted(() => {})
       </div>
     </section>
 
-    <!-- 我的日志：竖向时间线，避免横向分割线与页脚 --- 重复堆叠 -->
+    <!-- Feed：竖向时间线，避免横向分割线与页脚 --- 重复堆叠 -->
     <section class="my-log">
       <div class="my-log-head">
         <h2 class="my-log-title">
-          Daily Log
+          {{ feedTitle }}
           <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
         </h2>
         <button class="my-log-toggle" type="button" @click="toggleLogMode">
@@ -185,7 +218,7 @@ onUnmounted(() => {})
       <p v-show="logLoading" class="my-log-loading">加载中…</p>
     </section>
 
-    <!-- 3D 地球 + 居住地：独立模块，位于 Daily Log 与 Footprints 之间 -->
+    <!-- 3D 地球 + 居住地：独立模块，位于 Feed 与 Footprints 之间 -->
     <section class="my-globe">
       <div class="my-globe-head">
         <h2 class="my-globe-title">Residence</h2>
@@ -255,14 +288,26 @@ onUnmounted(() => {})
     gap: 16px;
   }
   .phoebe-inline :deep(.poke-fig img) { width: 88px; }
-  .my-log { padding: 0 6px; }
-  .my-log-item { gap: 12px; }
-  .my-log-time { flex-basis: 92px; }
+  .my-log,
+  .my-globe,
+  .my-footprints {
+    max-width: 100%;
+    padding: 0 4px 0 0;
+  }
+  .my-log-item { gap: 8px; }
+  .my-log-time { flex-basis: 80px; }
 }
 @media (max-width: 440px) {
-  .home-page { padding: 32px 16px 0; }
-  .my-log-time { flex-basis: 84px; }
-  .my-log-item { gap: 12px; }
+  .home-page { padding: 20px 4px 0; }
+  .my-log,
+  .my-globe,
+  .my-footprints {
+    max-width: 100%;
+    padding: 0 2px 0 0;
+  }
+  .my-log-time { flex-basis: 72px; font-size: 11px; }
+  .my-log-item { gap: 6px; }
+  .my-log-body { font-size: 13px; }
 }
 
 .avatar-ring {

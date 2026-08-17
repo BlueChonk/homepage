@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
 import anchor from 'markdown-it-anchor'
-import { getShikiPlugin } from '../composables/useShiki'
+import { getShikiPlugin } from '../../composables/useShiki'
 
 const props = defineProps({
   source: { type: String, default: '' },

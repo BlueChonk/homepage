@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Image } from 'ant-design-vue'
-import AppFooter from './AppFooter.vue'
+import AppFooter from '../components/common/AppFooter.vue'
 
 // 每次翻页展示多少张
 const PAGE_SIZE = 12

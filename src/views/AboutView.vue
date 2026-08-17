@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Card } from 'ant-design-vue'
-import AppFooter from './AppFooter.vue'
+import AppFooter from '../components/common/AppFooter.vue'
 
 // 个人头像，仅用于个人资料展示
 const myAvatar = '/avatar.jpg'

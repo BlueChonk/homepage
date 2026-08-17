@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { usePlayer } from '../composables/usePlayer'
+import { usePlayer } from '../../composables/usePlayer'
 
 const emit = defineEmits(['goto-music'])
 

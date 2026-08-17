@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Tooltip } from 'ant-design-vue'
-import { useRandomSound } from '../composables/useRandomSound'
+import { useRandomSound } from '../../composables/useRandomSound'
 
 const SOUNDS = ['/audio/ciallo_01.mp3', '/audio/ciallo_02.mp3', '/audio/ciallo_03.mp3']
 

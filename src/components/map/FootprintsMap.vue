@@ -1,7 +1,8 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import { FOOTPRINTS } from '../data/footprints'
-import { loadAMap } from '../utils/amap'
+import { loadAMap } from '../../utils/amap'
+
+const FOOTPRINTS = []
 
 /* 居住地：把这里改成你的具体坐标（高德 GCJ02） */
 const HOME = { name: '家', lng: 113.2644, lat: 23.1291 }

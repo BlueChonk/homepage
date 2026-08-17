@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { usePlayer } from '../composables/usePlayer'
-import { useLyrics } from '../composables/useLyrics'
+import { usePlayer } from '../../composables/usePlayer'
+import { useLyrics } from '../../composables/useLyrics'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
