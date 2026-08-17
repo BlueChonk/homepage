@@ -1,248 +1,96 @@
 <script setup>
-import { onMounted, onUnmounted, ref, computed } from 'vue'
-import { Map as MaplibreMap, AttributionControl, LngLatBounds } from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { useTheme } from '../composables/useTheme'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { FOOTPRINTS } from '../data/footprints'
-import '../utils/maplibreWorker'
+import { loadAMap } from '../utils/amap'
 
-const { resolved } = useTheme()
-
-/* 底图：仅使用高德栅格（中文地名最全），不再配置其他底图源 */
-function amapStyle() {
-  return {
-    version: 8,
-    sources: {
-      amap: {
-        type: 'raster',
-        tiles: [
-          'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-          'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-          'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-          'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-        ],
-        tileSize: 256,
-        maxzoom: 18,
-        attribution: '© 高德地图',
-      },
-    },
-    layers: [
-      { id: 'amap-bg', type: 'background', paint: { 'background-color': '#eef0f2' } },
-      {
-        id: 'amap',
-        type: 'raster',
-        source: 'amap',
-        paint: { 'raster-fade-duration': 0 },
-      },
-    ],
-  }
-}
+/* 居住地：把这里改成你的具体坐标（高德 GCJ02） */
+const HOME = { name: '家', lng: 113.2644, lat: 23.1291 }
 
 const loading = ref(true)
 const failed = ref(false)
-
-/* 高德为浅色栅格，暗色主题时给画布加反色滤镜 */
-const darkFilter = computed(() => resolved.value === 'dark')
-
 const container = ref(null)
 let map = null
+let districtLayer = null
+let homeMarker = null
 
-/* 生成覆盖市区范围的圆形色块（以城市中心为圆心、半径 r km） */
-function circlePolygon(lng, lat, radiusKm, segments = 48) {
-  const toRad = (d) => (d * Math.PI) / 180
-  const toDeg = (r) => (r * 180) / Math.PI
-  const R = 6371
-  const pts = []
-  for (let i = 0; i < segments; i++) {
-    const brng = (i / segments) * 2 * Math.PI
-    const lat1 = toRad(lat)
-    const lng1 = toRad(lng)
-    const d = radiusKm / R
-    const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng)
-    )
-    const lng2 =
-      lng1 +
-      Math.atan2(
-        Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
-        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
-      )
-    pts.push([toDeg(lng2), toDeg(lat2)])
-  }
-  pts.push(pts[0])
-  return pts
-}
-
-/* 真实行政边界：优先加载 GeoAtlas 数据（public/geo/{adcode}.json），失败则回退圆形色块 */
-async function fetchRealFeatures() {
-  const base = import.meta.env.BASE_URL || '/'
-  const out = []
-  for (const f of FOOTPRINTS) {
-    try {
-      const res = await fetch(`${base}geo/${f.adcode}.json`, { cache: 'no-cache' })
-      const data = await res.json()
-      const feat = data.features?.[0]
-      if (feat?.geometry) {
-        out.push({
-          type: 'Feature',
-          properties: { name: f.name },
-          geometry: feat.geometry,
-        })
-        continue
-      }
-    } catch {
-      /* 继续走回退 */
-    }
-    return null
-  }
-  return out
-}
-
-function circleFeatures() {
-  return FOOTPRINTS.map((f) => ({
-    type: 'Feature',
-    properties: { name: f.name },
-    geometry: {
-      type: 'Polygon',
-      coordinates: [circlePolygon(f.lng, f.lat, f.r)],
-    },
-  }))
-}
-
-/* 点亮城市：整个行政区边界填充醒目橙色（亮/暗主题均突出） */
-function addAreas(features) {
-  if (!map || map.getSource('footprint-areas')) return
-  map.addSource('footprint-areas', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features },
-  })
-  map.addLayer({
-    id: 'footprint-fill',
-    type: 'fill',
-    source: 'footprint-areas',
-    paint: {
-      'fill-color': '#ff9f1a',
-      'fill-opacity': 0.62,
-    },
-  })
-  map.addLayer({
-    id: 'footprint-line',
-    type: 'line',
-    source: 'footprint-areas',
-    paint: {
-      'line-color': '#ffe3b3',
-      'line-width': 1.5,
-      'line-opacity': 0.95,
-    },
-  })
-}
-
-/* 城市边界只拉取一次，主题切换 / 换底图后复用 */
-let featuresPromise = null
-
-function getFootprintFeatures() {
-  if (!featuresPromise) {
-    featuresPromise = (async () => {
-      let features = await fetchRealFeatures()
-      if (!features) features = circleFeatures()
-      return features
-    })()
-  }
-  return featuresPromise
-}
-
-/* 样式加载后铺上染色 */
-async function applyFootprints() {
-  if (!map) return
-  const features = await getFootprintFeatures()
-  addAreas(features)
-  fitFootprints()
-}
-
-/* 两城市间距离（km，Haversine） */
+const R = 6371
+const toRad = (d) => (d * Math.PI) / 180
 function kmBetween(aLat, aLng, bLat, bLng) {
-  const R = 6371
-  const dLat = ((bLat - aLat) * Math.PI) / 180
-  const dLng = ((bLng - aLng) * Math.PI) / 180
+  const dLat = toRad(bLat - aLat)
+  const dLng = toRad(bLng - aLng)
   const s =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(s))
 }
 
-/* 足迹密集区域：默认视野聚焦足迹最多的区域，而不是一上来展示全中国 */
-function denseFootprintBounds() {
+/* 视野聚焦足迹最密集的区域，避免一上来展示全中国而显得空旷 */
+function fitBounds(AMap) {
   const pts = FOOTPRINTS
-  if (pts.length <= 3) return null
-  const MAX_DIST_KM = 450
-  let best = []
-  for (const a of pts) {
-    const near = pts.filter((b) => kmBetween(a.lat, a.lng, b.lat, b.lng) <= MAX_DIST_KM)
-    if (near.length > best.length) best = near
+  let target = pts
+  if (pts.length > 3) {
+    const MAX_KM = 450
+    let best = []
+    for (const a of pts) {
+      const near = pts.filter((b) => kmBetween(a.lat, a.lng, b.lat, b.lng) <= MAX_KM)
+      if (near.length > best.length) best = near
+    }
+    if (best.length >= Math.max(4, Math.ceil(pts.length / 2))) target = best
   }
-  /* 密集簇至少占总数一半（且不少于 4 个），否则退回全图 */
-  if (best.length < Math.max(4, Math.ceil(pts.length / 2))) return null
-  const bounds = new LngLatBounds()
-  best.forEach((m) => bounds.extend([m.lng, m.lat]))
-  return bounds
+  const bounds = new AMap.Bounds()
+  target.forEach((f) => bounds.extend(new AMap.LngLat(f.lng, f.lat)))
+  bounds.extend(new AMap.LngLat(HOME.lng, HOME.lat))
+  map.setBounds(bounds, false, [32, 32, 32, 32])
 }
 
-/* 自动框住足迹：优先聚焦密集区域 */
-function fitFootprints() {
-  if (!map || !FOOTPRINTS.length) return
-  const dense = denseFootprintBounds()
-  if (dense) {
-    map.fitBounds(dense, { padding: 64, duration: 0, maxZoom: 8 })
-    return
-  }
-  const bounds = new LngLatBounds()
-  FOOTPRINTS.forEach((m) => bounds.extend([m.lng, m.lat]))
-  map.fitBounds(bounds, { padding: 64, duration: 0, maxZoom: 7 })
-}
+onMounted(async () => {
+  try {
+    const AMap = await loadAMap()
+    map = new AMap.Map(container.value, {
+      zoom: 6,
+      center: [113.9, 22.6],
+      viewMode: '2D',
+    })
 
-onMounted(() => {
-  map = new MaplibreMap({
-    container: container.value,
-    style: amapStyle(),
-    center: [113.9, 22.6],
-    zoom: 6,
-    renderWorldCopies: false,
-    attributionControl: false,
-    failIfMajorPerformanceCaveat: false,
-  })
-  if (import.meta.env.DEV) window.__fpMap = map
-  map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
-  map.on('style.load', applyFootprints)
-  map.on('load', () => {
+    /* 点亮去过区域：本地行政区图层，边界由高德官方提供，无需自带 geo 数据 */
+    districtLayer = new AMap.DistrictLayer.SubDistrict({
+      adcode: FOOTPRINTS.map((f) => String(f.adcode)),
+      level: 'city',
+      depth: 2,
+      lineWidth: 1,
+      lineJoin: 'round',
+      fillColor: '#ff9f1a',
+      fillOpacity: 0.55,
+      strokeColor: '#ffd88a',
+      strokeOpacity: 0.95,
+    })
+    districtLayer.setMap(map)
+
+    /* 居住地标记 */
+    homeMarker = new AMap.Marker({
+      position: [HOME.lng, HOME.lat],
+      title: HOME.name,
+      content: '<div class="fp-home">🏠</div>',
+    })
+    homeMarker.setMap(map)
+
+    fitBounds(AMap)
     loading.value = false
-    applyFootprints()
-  })
-  map.on('error', (e) => {
-    if (failed.value) return
-    const err = e?.error
-    /* 瓦片偶发错误不影响底图；仅当样式加载失败时标记失败 */
-    if (e.source || e.tile) return
-    if (err && !map.loaded() && !failed.value) failed.value = true
-  })
+  } catch (e) {
+    failed.value = true
+  }
 })
 
 onUnmounted(() => {
-  if (map?.getLayer('footprint-line')) map.removeLayer('footprint-line')
-  if (map?.getLayer('footprint-fill')) map.removeLayer('footprint-fill')
-  if (map?.getSource('footprint-areas')) map.removeSource('footprint-areas')
-  map?.remove()
+  districtLayer?.setMap(null)
+  homeMarker?.setMap(null)
+  map?.destroy()
   map = null
 })
 </script>
 
 <template>
-  <div
-    ref="container"
-    class="footprints-map"
-    :class="{ 'dark-tiles': darkFilter }"
-    role="region"
-    aria-label="足迹地图"
-  >
+  <div ref="container" class="footprints-map" role="region" aria-label="足迹地图">
     <div v-if="loading" class="map-overlay">
       <span class="map-loading-dot"></span>
       <span>地图加载中…</span>
@@ -250,7 +98,7 @@ onUnmounted(() => {
     <div v-if="failed" class="map-overlay">
       <div class="map-error-emoji">🗺️</div>
       <p class="map-error-main">地图暂时加载失败</p>
-      <p class="map-error-hint">请检查网络后刷新页面</p>
+      <p class="map-error-hint">请确认已配置高德 Key 并在控制台加好安全域名</p>
     </div>
   </div>
 </template>
@@ -264,9 +112,7 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  background:
-    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 1.5px) 0 0 / 26px 26px,
-    var(--bg-soft);
+  background: #eef0f2;
 }
 .map-overlay {
   position: absolute;
@@ -309,27 +155,21 @@ onUnmounted(() => {
   font-size: 12px;
   opacity: 0.75;
 }
-
-.footprints-map :deep(.maplibregl-ctrl-attrib) {
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  color: var(--text-tertiary);
-  font-size: 10px;
+/* 居住地圆形标记 */
+.fp-home {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
-.footprints-map :deep(.maplibregl-ctrl-attrib a) {
-  color: var(--accent);
-}
-
-@media (max-width: 720px) {
-  .footprints-map {
-    height: 320px;
-  }
-}
-@media (max-width: 480px) {
-  .footprints-map {
-    height: 280px;
-  }
-}
-.footprints-map.dark-tiles :deep(.maplibregl-canvas) {
-  filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.85);
+.footprints-map :deep(.amap-logo),
+.footprints-map :deep(.amap-copyright) {
+  opacity: 0.7;
 }
 </style>
