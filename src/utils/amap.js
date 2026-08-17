@@ -5,9 +5,13 @@
  */
 // 高德 Web端(JS API) Key
 // 取值优先级：构建期注入的 __AMAP_API_KEY__（EdgeOne 控制台环境变量 AMAP_API_KEY）
-// → 本地 .env 的 VITE_AMAP_KEY（开发时用）
+// → 本地 .env 的 VITE_AMAP_API_KEY
+// → 兼容旧版 VITE_AMAP_KEY
 const AMAP_KEY = (
-  __AMAP_API_KEY__ || import.meta.env.VITE_AMAP_KEY || ''
+  __AMAP_API_KEY__
+  || import.meta.env.VITE_AMAP_API_KEY
+  || import.meta.env.VITE_AMAP_KEY
+  || ''
 ).trim()
 // 高德安全密钥（jscode），未开启「联合鉴权」时可为空
 const AMAP_SECURITY_JS_CODE = (import.meta.env.VITE_AMAP_SECURITY_JS_CODE || '').trim()
@@ -18,7 +22,7 @@ export function loadAMap() {
   if (!amapPromise) {
     amapPromise = new Promise((resolve, reject) => {
       if (window.AMap) return resolve(window.AMap)
-      if (!AMAP_KEY) return reject(new Error('未配置高德 Key（请设置 .env 的 VITE_AMAP_KEY，或 EdgeOne 环境变量 AMAP_API_KEY）'))
+      if (!AMAP_KEY) return reject(new Error('未配置高德 Key（请设置 .env 的 VITE_AMAP_API_KEY，或 EdgeOne 环境变量 AMAP_API_KEY）'))
 
       // 使用安全密钥(jscode)时必须先于脚本注入配置
       if (AMAP_SECURITY_JS_CODE) {
