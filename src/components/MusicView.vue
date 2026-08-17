@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayer } from '../composables/usePlayer'
 import { useLyrics } from '../composables/useLyrics'
+import { useOnlineMusic } from '../composables/useOnlineMusic'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
@@ -11,6 +12,23 @@ const {
 const {
   lyricLines, lyricAvailable, lyricLoading, activeIndex, seekLyric,
 } = useLyrics()
+
+/* ===== 在线搜索（QQ 音乐列表 + B 站音频在线播放） ===== */
+const online = useOnlineMusic()
+const onlineKeyword = online.keyword
+const onlineResults = online.results
+const onlineLoading = online.loading
+const onlineError = online.error
+const onlinePlayingIndex = online.playingIndex
+const onlinePlaying = online.playing
+const onlineResolving = online.resolving
+const onlineSearch = online.search
+const onlinePlay = online.play
+const onlineStop = online.stop
+const onlineOpen = ref(false)
+
+/* 在线开始播放时，暂停本地播放器，避免两路音频同时出声 */
+watch(onlinePlaying, (on) => { if (on && playing.value) toggle() })
 
 function resolveUrl(u) {
   if (!u) return ''
@@ -185,6 +203,75 @@ onUnmounted(() => {
     <!-- 沉浸背景：铺满整个音乐页（播放器 + 列表融为一体） -->
     <div class="stage-bg" :class="{ cover: !!coverSrc }" :style="coverStyle"></div>
     <div class="stage-overlay"></div>
+
+    <!-- ===== 在线搜索入口（浮动，独立于本地曲库） ===== -->
+    <button
+      class="online-fab"
+      :class="{ active: onlineOpen }"
+      @click.stop="onlineOpen = !onlineOpen"
+      :title="onlineOpen ? '关闭在线搜索' : '在线搜索（QQ · B 站）'"
+      aria-label="在线搜索"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+    </button>
+
+    <Transition name="drawer">
+      <div v-if="onlineOpen" class="online-mask" @click.self="onlineOpen = false">
+        <aside class="online-drawer">
+          <div class="drawer-head">
+            <span class="list-title">在线搜索</span>
+            <span class="drawer-count">QQ 音乐 · B 站音频</span>
+            <button class="drawer-close" @click="onlineOpen = false" aria-label="关闭在线搜索">✕</button>
+          </div>
+
+          <div class="online-search-row">
+            <input
+              v-model="onlineKeyword"
+              class="online-input"
+              placeholder="输入歌名或歌手，敲回车搜索"
+              @keyup.enter="onlineSearch()"
+            />
+            <button class="online-go" :disabled="onlineLoading" @click="onlineSearch()">
+              {{ onlineLoading ? '搜索中…' : '搜索' }}
+            </button>
+          </div>
+
+          <div v-if="onlineError" class="online-error">{{ onlineError }}</div>
+          <div v-else-if="!onlineLoading && !onlineResults.length" class="online-empty">
+            <span class="online-empty-emoji">🔎</span>
+            <p>搜索 QQ 音乐曲库，点「播放」试听（音频由 B 站解析）</p>
+          </div>
+
+          <ul v-else class="online-list">
+            <li
+              v-for="(r, i) in onlineResults"
+              :key="i"
+              :class="{ active: i === onlinePlayingIndex && onlinePlaying }"
+              @click="onlinePlay(i)"
+              :title="'在线试听：' + r.name"
+            >
+              <span class="idx">
+                <span v-if="onlineResolving === i" class="spin"></span>
+                <svg v-else-if="i === onlinePlayingIndex && onlinePlaying" viewBox="0 0 24 24" fill="currentColor" class="idx-play"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+                <svg v-else viewBox="0 0 24 24" fill="currentColor" class="idx-play"><path d="M8 5v14l11-7z"/></svg>
+              </span>
+              <img v-if="r.cover" :src="r.cover" alt="" class="online-cover" loading="lazy" />
+              <span v-else class="online-cover online-cover-note">♪</span>
+              <span class="meta">
+                <span class="name">{{ r.name || '-' }}</span>
+                <span v-if="r.singer" class="by">{{ r.singer }}</span>
+              </span>
+              <span class="duration">{{ formatTime(r.interval) }}</span>
+            </li>
+          </ul>
+
+          <div v-if="onlineLoading" class="online-loading">搜索中…</div>
+        </aside>
+      </div>
+    </Transition>
 
     <template v-if="loading">
       <div class="state">加载中…</div>
@@ -1095,6 +1182,208 @@ html[data-theme="dark"] .stage-overlay {
   padding: 1px 6px;
   border-radius: 6px;
   color: var(--text-secondary);
+}
+
+/* ===== 在线搜索 ===== */
+.online-fab {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 32;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.15s ease, box-shadow 0.18s ease;
+}
+.online-fab svg {
+  width: 20px;
+  height: 20px;
+}
+.online-fab:hover,
+.online-fab.active {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--accent-soft);
+}
+.online-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 31;
+  display: flex;
+  justify-content: flex-end;
+}
+.online-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 92vw);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 18px 18px 16px;
+}
+.online-search-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 4px 12px;
+}
+.online-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+.online-input:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.online-go {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: filter 0.16s, transform 0.15s ease;
+}
+.online-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.online-go:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.online-error {
+  flex: none;
+  padding: 10px 12px;
+  margin: 0 4px 10px;
+  font-size: 13px;
+  color: var(--danger, #e5484d);
+  background: color-mix(in srgb, var(--danger-soft, #fdecec) 60%, transparent);
+  border-radius: 10px;
+}
+.online-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+  padding: 0 16px;
+}
+.online-empty-emoji {
+  font-size: 34px;
+  opacity: 0.6;
+}
+.online-loading {
+  flex: none;
+  padding: 8px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+.online-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  padding-right: 4px;
+}
+.online-list::-webkit-scrollbar {
+  width: 6px;
+}
+.online-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.online-list::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.online-list li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  transition: background 0.15s, border-color 0.15s;
+}
+.online-list li:hover {
+  background: var(--surface-hover);
+}
+.online-list li.active {
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface) 30%);
+  border-color: var(--accent-border);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.online-list li .idx-play {
+  display: block;
+  color: var(--text-tertiary);
+}
+.online-list li:hover .idx-play,
+.online-list li.active .idx-play {
+  color: var(--accent);
+}
+.online-cover {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.online-cover-note {
+  font-size: 17px;
+  color: var(--accent);
+}
+.online-list .meta {
+  flex: 1 1 auto;
+}
+.spin {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: onspin 0.8s linear infinite;
+}
+@keyframes onspin {
+  to { transform: rotate(360deg); }
 }
 
 /* ===== 响应式 ===== */
