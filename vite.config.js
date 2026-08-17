@@ -58,6 +58,12 @@ function manifestPlugin({ dir, outFile = 'manifest.jsonl', urlBase, test, titleO
 }
 
 export default defineConfig({
+  // 高德 Key：EdgeOne 控制台配置的环境变量 AMAP_API_KEY 会在云端构建时注入到 process.env，
+  // 这里在构建期通过 define 把值烘焙进前端产物（浏览器运行时无法直接读服务端环境变量）。
+  // 本地可改用 .env 的 VITE_AMAP_KEY，或导出 AMAP_API_KEY 后再 npm run build。
+  define: {
+    __AMAP_API_KEY__: JSON.stringify(process.env.AMAP_API_KEY || ''),
+  },
   optimizeDeps: {
     // maplibre-gl 通过 new URL(..., import.meta.url) 引用其 worker，
     // 预打包时该 worker 不会被生成，导致矢量图层（如足迹染色）无法渲染。
