@@ -14,6 +14,9 @@ dist-ssr
 # npm 生成（锁文件不入库，避免与开发机 npm 版本差异导致无谓冲突）
 package-lock.json
 
+# EdgeOne CLI 本地项目配置（含云端项目 ID 等部署关联信息，不入库）
+.edgeone/
+
 # Python / FastAPI
 __pycache__/
 *.py[cod]
