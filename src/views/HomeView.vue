@@ -294,8 +294,8 @@ onUnmounted(() => {})
     max-width: 100%;
     padding: 0 4px 0 0;
   }
-  .my-log-item { gap: 8px; }
   .my-log-time { flex-basis: 80px; }
+  .my-log-dash { margin-right: 8px; }
 }
 @media (max-width: 440px) {
   .home-page { padding: 20px 4px 0; }
@@ -306,7 +306,7 @@ onUnmounted(() => {})
     padding: 0 2px 0 0;
   }
   .my-log-time { flex-basis: 72px; font-size: 11px; }
-  .my-log-item { gap: 6px; }
+  .my-log-dash { margin-right: 6px; }
   .my-log-body { font-size: 13px; }
 }
 
@@ -477,7 +477,6 @@ onUnmounted(() => {})
 }
 .my-log-item {
   display: flex;
-  gap: 12px;
   padding: 9px 0;
   align-items: flex-start;
 }
@@ -497,6 +496,8 @@ onUnmounted(() => {})
   line-height: 1.7;
   color: var(--text-tertiary);
   user-select: none;
+  margin-left: -2px;
+  margin-right: 10px;
 }
 .my-log-body {
   flex: 1 1 auto;

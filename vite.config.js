@@ -77,12 +77,12 @@ export default defineConfig({
     emptyOutDir: false,
   },
   server: {
-    // 在线音乐：把 /api 反代到本地 Node 后端（node server/index.js）。
-    // 生产环境需自行部署后端，并用 VITE_API_BASE 指向其地址。
     proxy: {
       '/api': {
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8787',
         changeOrigin: true,
+        timeout: 30000,
+        proxyTimeout: 30000,
       },
     },
   },
