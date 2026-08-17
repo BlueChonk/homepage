@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
+import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -87,6 +88,20 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    // 动态(feeds)：把 public/feeds/*.md 合并为 public/feeds.md；构建/启动/保存时自动重生成
+    {
+      name: 'feed:merge',
+      buildStart() {
+        mergeFeeds()
+      },
+      configureServer(server) {
+        mergeFeeds()
+        server.watcher.add(feedsDir)
+        server.watcher.on('all', (_evt, file) => {
+          if (file.startsWith(feedsDir) && file.endsWith('.md')) mergeFeeds()
+        })
+      },
+    },
     // 相册：public/album/*.jpg → public/album-manifest.jsonl
     manifestPlugin({
       dir: 'album',

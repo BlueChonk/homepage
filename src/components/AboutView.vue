@@ -53,9 +53,9 @@ function toggleLogMode() {
   showAllLogs.value = !showAllLogs.value
 }
 
-/* 我的日志模块：数据来自 public/daily-log.md，运行时读取。
+/* 动态模块：数据来自 public/feeds.md（由 scripts/gen-feed.mjs 合并 public/feeds/*.md 生成）。
    格式：每个日志用日期作为一级标题（# YYYY-MM-DD），正文跟在其后；
-   新增/修改日志只需编辑该 md 文件，无需改动组件或重新构建。 */
+   新增/修改日志只需往 public/feeds/ 加/改一个 md 文件，构建或 dev 保存时会自动重新合并，无需改动组件。 */
 const myLogs = ref([])
 const logLoading = ref(true)
 const visibleLogs = computed(() =>
@@ -70,13 +70,13 @@ function dateKey(date) {
 
 onMounted(async () => {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}daily-log.md`, { cache: 'no-cache' })
+    const res = await fetch(`${import.meta.env.BASE_URL}feeds.md`, { cache: 'no-cache' })
     const md = await res.text()
     myLogs.value = parseDailyLog(md).sort((a, b) =>
       dateKey(b.date).localeCompare(dateKey(a.date))
     )
   } catch (e) {
-    console.error('读取 daily-log.md 失败：', e)
+    console.error('读取 feeds.md 失败：', e)
     myLogs.value = []
   } finally {
     logLoading.value = false
