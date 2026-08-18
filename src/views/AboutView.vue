@@ -57,6 +57,9 @@ function onIconError(name) {
 function openLink(href) {
   if (href) window.open(href, '_blank', 'noopener')
 }
+
+// About 页为静态内容，无需重载
+defineExpose({ reload: async () => {} })
 </script>
 
 <template>

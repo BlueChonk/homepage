@@ -40,6 +40,9 @@ async function loadManifest() {
 
 onMounted(loadManifest)
 
+/* 暴露 reload 方法供下拉刷新调用 */
+defineExpose({ reload: loadManifest })
+
 /* 轻量 Lightbox：原生实现，不依赖 Ant Design Vue Image 组件 */
 const previewIndex = ref(-1)
 const previewOpen = computed(() => previewIndex.value >= 0)

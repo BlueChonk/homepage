@@ -170,6 +170,9 @@ onUnmounted(() => {
     else mobileMq.removeListener(updateMobile)
   }
 })
+
+// 暴露 reload 方法供下拉刷新调用
+defineExpose({ reload: load })
 </script>
 
 <template>

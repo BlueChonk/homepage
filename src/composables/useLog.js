@@ -86,8 +86,8 @@ export function useLog(limit = 0) {
     limit > 0 ? myLogs.value.slice(0, limit) : myLogs.value
   )
 
-  onMounted(async () => {
-    logTitleTimer = setTimeout(cycleLogTitle, 600)
+  async function loadLogs() {
+    logLoading.value = true
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}log.md`, { cache: 'no-cache' })
       const md = await res.text()
@@ -100,6 +100,11 @@ export function useLog(limit = 0) {
     } finally {
       logLoading.value = false
     }
+  }
+
+  onMounted(() => {
+    logTitleTimer = setTimeout(cycleLogTitle, 600)
+    loadLogs()
   })
 
   onUnmounted(() => {
@@ -112,5 +117,5 @@ export function useLog(limit = 0) {
     root.querySelectorAll('a[href]').forEach(externalizeLogLinks)
   }
 
-  return { logTitle, myLogs, logLoading, visibleLogs, onLogRendered }
+  return { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs }
 }

@@ -25,7 +25,8 @@ export function useNotes(limit = 0) {
     limit > 0 ? notes.value.slice(0, limit) : notes.value
   )
 
-  onMounted(async () => {
+  async function loadNotes() {
+    notesLoading.value = true
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}note.jsonl`, { cache: 'no-cache' })
       if (!res.ok) throw new Error(`清单加载失败 (${res.status})`)
@@ -36,7 +37,9 @@ export function useNotes(limit = 0) {
     } finally {
       notesLoading.value = false
     }
-  })
+  }
 
-  return { notes, notesLoading, visibleNotes }
+  onMounted(loadNotes)
+
+  return { notes, notesLoading, visibleNotes, loadNotes }
 }

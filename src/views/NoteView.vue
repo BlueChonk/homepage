@@ -173,7 +173,9 @@ function onMdRendered(e) {
 }
 
 /* ===== 列表滚动 ===== */
-onMounted(async () => {
+async function loadNoteList() {
+  loading.value = true
+  error.value = ''
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}note.jsonl`, { cache: 'no-cache' })
     if (!res.ok) throw new Error(`清单加载失败 (${res.status})`)
@@ -183,7 +185,12 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+/* 暴露 reload 方法供下拉刷新调用 */
+defineExpose({ reload: loadNoteList })
+
+onMounted(loadNoteList)
 
 onMounted(() => {
   const body = document.querySelector('.app-body')

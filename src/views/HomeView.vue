@@ -16,10 +16,16 @@ function viewAllNotes() {
 }
 
 /* 日志时间线：只显示最近 2 条 */
-const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog(2)
+const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog(2)
 
 /* 笔记预览：只显示最近 2 篇 */
-const { notes, notesLoading, visibleNotes } = useNotes(2)
+const { notes, notesLoading, visibleNotes, loadNotes } = useNotes(2)
+
+/* 暴露 reload 方法供下拉刷新调用 */
+async function reload() {
+  await Promise.all([loadLogs(), loadNotes()])
+}
+defineExpose({ reload })
 
 const phrases = [
   '热爱二次元的技术宅',

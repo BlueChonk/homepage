@@ -61,6 +61,9 @@ async function loadData() {
 
 onMounted(loadData)
 
+/* ===== 暴露 reload 方法供下拉刷新调用 ===== */
+defineExpose({ reload: loadData })
+
 /* ===== 计算属性 ===== */
 /** 按当前类别 + 状态筛选 */
 const filtered = computed(() => {

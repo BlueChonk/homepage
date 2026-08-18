@@ -5,7 +5,10 @@ import AppFooter from '../components/AppFooter.vue'
 import { useLog } from '../composables/useLog'
 
 /* 全部日志，不限制条数 */
-const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog()
+const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog()
+
+/* 暴露 reload 方法供下拉刷新调用 */
+defineExpose({ reload: loadLogs })
 
 /* ===== 折叠/展开逻辑 ===== */
 const COLLAPSE_THRESHOLD = 150 // 超过此高度(px)自动折叠
