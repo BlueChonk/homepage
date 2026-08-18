@@ -28,7 +28,7 @@ function parseJsonl(text) {
 async function loadManifest() {
   loading.value = true
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}album-manifest.jsonl`, { cache: 'no-cache' })
+    const res = await fetch(`${import.meta.env.BASE_URL}album.jsonl`, { cache: 'no-cache' })
     const text = await res.text()
     all.value = parseJsonl(text).map((item) => ({
       src: item.url,

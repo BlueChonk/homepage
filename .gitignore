@@ -18,6 +18,11 @@ package-lock.json
 .music_cache/
 .env
 
+# 脚本自动生成的清单文件（vite 启动/构建时自动生成，勿提交）
+public/album.jsonl
+public/note.jsonl
+public/feeds.md
+
 # Python
 __pycache__/
 *.py[cod]

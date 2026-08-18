@@ -8,13 +8,13 @@ import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-/* 通用：扫描 public/<dir> 下的文件，生成 <name>-manifest.jsonl（JSON Lines，供前端动态加载）
-   - outFile: 输出文件名（默认 manifest.jsonl），写入 public/ 根目录
+/* 通用：扫描 public/<dir> 下的文件，生成 <name>.jsonl（JSON Lines，供前端动态加载）
+   - outFile: 输出文件名（默认 <dir>.jsonl），写入 public/ 根目录
    - urlBase: 文件对外访问的基础路径（如 /album）
    - test:    判定哪些文件要纳入（默认图片）
    - titleOf: 由文件名生成展示标题
 */
-function manifestPlugin({ dir, outFile = 'manifest.jsonl', urlBase, test, titleOf, mapItem }) {
+function manifestPlugin({ dir, outFile, urlBase, test, titleOf, mapItem }) {
   const absDir = path.resolve(__dirname, 'public', dir)
   const outPath = path.resolve(__dirname, 'public', outFile)
   const isImg = (f) => /\.(jpe?g|png|gif|webp|avif|bmp)$/i.test(f)
@@ -76,16 +76,6 @@ export default defineConfig({
     // 输出文件均带内容哈希，旧文件不影响站点使用，可定期手动清理。
     emptyOutDir: false,
   },
-  server: {
-    proxy: {
-      '/api': {
-        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8787',
-        changeOrigin: true,
-        timeout: 30000,
-        proxyTimeout: 30000,
-      },
-    },
-  },
   plugins: [
     vue(),
     // 动态(feeds)：把 public/feeds/*.md 合并为 public/feeds.md；构建/启动/保存时自动重生成
@@ -102,10 +92,10 @@ export default defineConfig({
         })
       },
     },
-    // 相册：public/album/*.jpg → public/album-manifest.jsonl
+    // 相册：public/album/*.jpg → public/album.jsonl
     manifestPlugin({
       dir: 'album',
-      outFile: 'album-manifest.jsonl',
+      outFile: 'album.jsonl',
       urlBase: '/album',
       titleOf: (n) => n.replace(/\.[^.]+$/, ''),
       mapItem: (name, url) => {
@@ -120,22 +110,22 @@ export default defineConfig({
       },
     }),
     // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
-    // 记录：public/records/*.md → public/records-manifest.jsonl
-    // 输出结构兼容 RecordsView：{ id, file, title, category, date, excerpt }
-    // file 保留原始文件名（不编码），由 RecordsView 用 encodeURI 统一编码
+    // 笔记：public/note/*.md → public/note.jsonl
+    // 输出结构兼容 NoteView：{ id, file, title, category, date, excerpt }
+    // file 保留原始文件名（不编码），由 NoteView 用 encodeURI 统一编码
     manifestPlugin({
-      dir: 'records',
-      outFile: 'records-manifest.jsonl',
-      urlBase: '/records',
+      dir: 'note',
+      outFile: 'note.jsonl',
+      urlBase: '/note',
       test: (f) => /\.md$/i.test(f),
       titleOf: (n) => n.replace(/\.md$/i, ''),
       mapItem: (name) => {
-        const filePath = path.resolve(__dirname, 'public', 'records', name)
+        const filePath = path.resolve(__dirname, 'public', 'note', name)
         const { date, excerpt, category } = extractMeta(filePath)
         const raw = fs.readFileSync(filePath, 'utf-8')
         return {
           id: name,
-          file: `/records/${name}`,
+          file: `/note/${name}`,
           title: extractTitle(filePath, name.replace(/\.md$/i, '')),
           category,
           date,

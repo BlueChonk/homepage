@@ -13,8 +13,8 @@ const MD_RE = /\.md$/i
 
 const TARGETS = [
   { folder: 'album', kind: 'image' },
-  { folder: 'records', kind: 'records' },
-  { folder: 'music', kind: 'audio', out: 'music-manifest.jsonl' },
+  { folder: 'note', kind: 'note' },
+  { folder: 'music', kind: 'audio', out: 'music-manifest.jsonl' },  // 手动维护，不自动生成
 ]
 
 // 文件名里可能带空格、中日文、括号，编码后再写入 url，避免部分环境下请求 404
@@ -40,7 +40,7 @@ function generate(target) {
   const files = readdirSync(dir).filter((n) => statSync(join(dir, n)).isFile())
 
   let lines
-  if (target.kind === 'records') {
+  if (target.kind === 'note') {
     lines = files
       .filter((n) => MD_RE.test(n))
       .map((name) => {
@@ -49,7 +49,7 @@ function generate(target) {
         const raw = readFileSync(filePath, 'utf-8')
         return {
           id: name,
-          file: `/records/${name}`,
+          file: `/note/${name}`,
           title: extractTitle(filePath, name.replace(/\.md$/i, '')),
           category,
           date,
@@ -103,7 +103,7 @@ function generate(target) {
       })
   }
 
-  const outName = target.out || `${target.folder}-manifest.jsonl`
+  const outName = target.out || `${target.folder}.jsonl`
   const outFile = join(PUBLIC_DIR, outName)
   const content = lines.map((o) => JSON.stringify(o)).join('\n')
   writeFileSync(outFile, content + (lines.length ? '\n' : ''))
