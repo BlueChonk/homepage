@@ -9,8 +9,7 @@
  *   node scripts/fetch-bangumi.mjs
  *
  * 环境变量：
- *   BANGUMI_TOKEN     — Bangumi Access Token（必填）
- *   BANGUMI_USERNAME  — Bangumi 用户名（必填，设置后无法使用 UID）
+ *   BANGUMI_TOKEN     — Bangumi Access Token（必填，只需 token 即可）
  *
  * API 文档: https://bangumi.github.io/api/
  */
@@ -19,12 +18,23 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// 代理支持（CI/沙箱环境自动检测 HTTPS_PROXY）
+const _proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy
+if (_proxyUrl) {
+  try {
+    const { ProxyAgent, setGlobalDispatcher } = await import('undici')
+    setGlobalDispatcher(new ProxyAgent({ uri: _proxyUrl }))
+    console.log(`[bangumi] 使用代理: ${_proxyUrl}`)
+  } catch {
+    console.warn('[bangumi] 检测到代理但 undici 未安装，直连模式可能失败')
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUTPUT = path.resolve(__dirname, '..', 'public', 'bangumi.jsonl')
 
 const BANGUMI_API = 'https://api.bgm.tv'
 const TOKEN = process.env.BANGUMI_TOKEN || ''
-const USERNAME = process.env.BANGUMI_USERNAME || ''
 
 const UA = 'cecilia4412/homepage (https://github.com/cecilia4412/homepage)'
 
@@ -68,14 +78,14 @@ function sleep(ms) {
  * @param {number} collectionType - 收藏类型 (1/2/3)
  * @returns {Promise<Array>} 收藏记录数组
  */
-async function fetchCollections(subjectType, collectionType) {
+async function fetchCollections(username, subjectType, collectionType) {
   const results = []
   const limit = 50 // API 最大限制
   let offset = 0
   let total = Infinity
 
   while (offset < total) {
-    const url = `${BANGUMI_API}/v0/users/${USERNAME}/collections?subject_type=${subjectType}&type=${collectionType}&limit=${limit}&offset=${offset}`
+    const url = `${BANGUMI_API}/v0/users/${username}/collections?subject_type=${subjectType}&type=${collectionType}&limit=${limit}&offset=${offset}`
 
     try {
       const resp = await fetch(url, {
@@ -144,6 +154,25 @@ function mapItem(item) {
 }
 
 /**
+ * 用 Token 获取当前用户名
+ * 调用 /v0/me 端点，无需手动配置 BANGUMI_USERNAME
+ */
+async function getUsername() {
+  const res = await fetch(`${BANGUMI_API}/v0/me`, {
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      'User-Agent': UA,
+      Accept: 'application/json',
+    },
+  })
+  if (!res.ok) {
+    throw new Error(`获取用户信息失败: HTTP ${res.status} ${res.statusText}`)
+  }
+  const data = await res.json()
+  return data.username
+}
+
+/**
  * 主函数：拉取所有类型和状态的收藏，输出 JSONL
  */
 export async function fetchBangumi() {
@@ -151,19 +180,25 @@ export async function fetchBangumi() {
     console.warn('[bangumi] BANGUMI_TOKEN 未设置，跳过拉取')
     return
   }
-  if (!USERNAME) {
-    console.warn('[bangumi] BANGUMI_USERNAME 未设置，跳过拉取')
+
+  // 用 Token 获取用户名
+  let username
+  try {
+    username = await getUsername()
+    console.log(`[bangumi] Token 认证成功，用户名: ${username}`)
+  } catch (e) {
+    console.warn(`[bangumi] ${e.message}，跳过拉取`)
     return
   }
 
-  console.log(`[bangumi] 开始拉取用户 ${USERNAME} 的收藏数据...`)
+  console.log(`[bangumi] 开始拉取用户 ${username} 的收藏数据...`)
 
   const allItems = []
 
   // 遍历 3 种条目类型 × 3 种收藏状态
   for (const [stKey, stVal] of Object.entries(SUBJECT_TYPES)) {
     for (const [ctKey, ctVal] of Object.entries(COLLECTION_TYPES)) {
-      const items = await fetchCollections(stVal, ctVal)
+      const items = await fetchCollections(username, stVal, ctVal)
       allItems.push(...items.map(mapItem))
       await sleep(200)
     }

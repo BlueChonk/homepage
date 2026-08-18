@@ -160,7 +160,7 @@ function formatDate(date) {
     <!-- 空状态 -->
     <div v-else-if="filtered.length === 0" class="bgm-state empty">
       <p>暂无数据</p>
-      <p class="hint">请确认 <code>.env</code> 中已配置 BANGUMI_TOKEN 和 BANGUMI_USERNAME</p>
+      <p class="hint">请确认 <code>.env</code> 中已配置 BANGUMI_TOKEN</p>
     </div>
 
     <!-- 卡片网格 -->
