@@ -3,10 +3,31 @@ import vue from '@vitejs/plugin-vue'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execSync } from 'node:child_process'
 import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
 import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+/* QQ音乐歌单解析：调用 Python 脚本拉取歌单并写入 public/music.jsonl
+   - dev 启动时执行一次（configureServer）
+   - 构建时执行一次（buildStart）
+   - 歌单 ID 通过环境变量 QQ_PLAYLIST_ID 覆盖，默认 7813925785 */
+const QQ_PLAYLIST_ID = process.env.QQ_PLAYLIST_ID || '7813925785'
+function syncQQPlaylist() {
+  const script = path.resolve(__dirname, 'scripts', 'parse-qq-playlist.py')
+  try {
+    const out = execSync(`python3 ${script} ${QQ_PLAYLIST_ID}`, {
+      encoding: 'utf-8',
+      timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    const line = out.split('\n').find((l) => l.includes('已写入'))
+    console.log(`[qq-music] ${line || '歌单同步完成'}`)
+  } catch (e) {
+    console.error('[qq-music] 歌单同步失败:', e.message)
+  }
+}
 
 /* 通用：扫描 public/<dir> 下的文件，生成 <name>.jsonl（JSON Lines，供前端动态加载）
    - outFile: 输出文件名（默认 <dir>.jsonl），写入 public/ 根目录
@@ -78,6 +99,16 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    // QQ音乐歌单：dev 启动 / 构建时自动拉取歌单写入 public/music.jsonl
+    {
+      name: 'qq-music:sync',
+      buildStart() {
+        syncQQPlaylist()
+      },
+      configureServer() {
+        syncQQPlaylist()
+      },
+    },
     // 动态(feeds)：把 public/feeds/*.md 合并为 public/feeds.md；构建/启动/保存时自动重生成
     {
       name: 'feed:merge',
