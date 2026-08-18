@@ -4,7 +4,7 @@ import { ConfigProvider, theme } from 'ant-design-vue'
 import AppHeader from './components/AppHeader.vue'
 import HomeView from './views/HomeView.vue'
 import AboutView from './views/AboutView.vue'
-import AlbumView from './views/AlbumView.vue'
+
 import NoteView from './views/NoteView.vue'
 import LogView from './views/LogView.vue'
 import MusicView from './views/MusicView.vue'
@@ -24,7 +24,7 @@ function onNavigate(key) {
 }
 
 const scrollable = computed(
-  () => ['home', 'about', 'album', 'notes', 'log', 'bangumi'].includes(activeView.value)
+  () => ['home', 'about', 'notes', 'log', 'bangumi'].includes(activeView.value)
 )
 
 /* ===== 子页面 ref，用于调用 reload ===== */
@@ -119,7 +119,7 @@ onUnmounted(() => {
 
         <HomeView v-if="activeView === 'home'" ref="viewRef" @navigate="onNavigate" />
         <AboutView v-else-if="activeView === 'about'" ref="viewRef" />
-        <AlbumView v-else-if="activeView === 'album'" ref="viewRef" />
+        
         <MusicView v-else-if="activeView === 'music'" ref="viewRef" />
         <NoteView v-else-if="activeView === 'notes'" ref="viewRef" />
         <LogView v-else-if="activeView === 'log'" ref="viewRef" />

@@ -12,7 +12,6 @@ const AUDIO_RE = /\.(mp3|wav|ogg|flac|m4a|aac)$/i
 const MD_RE = /\.md$/i
 
 const TARGETS = [
-  { folder: 'album', kind: 'image' },
   { folder: 'note', kind: 'note' },
   { folder: 'music', kind: 'audio', out: 'music.jsonl' },  // 手动维护，不自动生成
 ]

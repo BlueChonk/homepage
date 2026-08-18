@@ -100,7 +100,6 @@ body {
 .note-page,
 .home-page,
 .log-page,
-.album-page,
 .view,
 .about-page {
   background: var(--bg-gradient), var(--bg);
@@ -120,7 +119,6 @@ body {
   /* 触屏设备上 hover 效果改为 active 触发 */
   .gp-ctrl:hover,
   .gp-play:hover,
-  .album-card:hover,
   .record-card:hover,
   .my-note-card:hover,
   .theme-btn:hover,
@@ -146,7 +144,6 @@ body {
   .note-page,
   .home-page,
   .log-page,
-  .album-page,
   .view,
   .about-page {
     background-attachment: scroll;

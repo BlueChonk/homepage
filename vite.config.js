@@ -105,23 +105,6 @@ export default defineConfig({
         })
       },
     },
-    // 相册：public/album/*.jpg → public/album.jsonl
-    manifestPlugin({
-      dir: 'album',
-      outFile: 'album.jsonl',
-      urlBase: '/album',
-      titleOf: (n) => n.replace(/\.[^.]+$/, ''),
-      mapItem: (name, url) => {
-        const base = name.replace(/\.[^.]+$/, '')
-        // 缩略图存在时附带 thumb 字段（网格展示用缩略图，点击预览仍用原图）
-        const thumb = fs.existsSync(
-          path.resolve(__dirname, 'public', 'album', 'thumbs', `${base}.jpg`)
-        )
-          ? `/album/thumbs/${encodeURIComponent(`${base}.jpg`)}`
-          : ''
-        return { name, url, title: base, ...(thumb ? { thumb } : {}) }
-      },
-    }),
     // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
     // 笔记：public/note/*.md → public/note.jsonl
     // 输出结构兼容 NoteView：{ id, file, title, category, date, excerpt }
