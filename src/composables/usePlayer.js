@@ -36,6 +36,8 @@ function trackKey(track) {
   return `${track.title || track.name || ''}|${track.artist || ''}`
 }
 
+let resolveFetchId = 0
+
 async function resolveOnline(track, forceRefresh = false) {
   if (!track) return null
   const song = track.title || track.name || ''
@@ -52,13 +54,16 @@ async function resolveOnline(track, forceRefresh = false) {
     }
   }
 
+  const myId = ++resolveFetchId
   resolving.value = true
   resolveError.value = ''
   try {
     const keyword = `${song} ${singer}`.trim()
     const res = await fetch(METING_API + encodeURIComponent(keyword), { cache: 'no-store' })
+    if (myId !== resolveFetchId) return null
     if (!res.ok) throw new Error(`QQ 音乐解析失败 (${res.status})`)
     const data = await res.json()
+    if (myId !== resolveFetchId) return null
     if (!Array.isArray(data) || data.length === 0) {
       throw new Error(`未找到"${song}"的匹配音频`)
     }
@@ -71,6 +76,11 @@ async function resolveOnline(track, forceRefresh = false) {
       expiresAt: Date.now() + 30 * 60 * 1000, // QQ 音乐 URL 有效期较长，缓存 30 分钟
     }
     resolveCache.set(key, entry)
+    // 限制缓存大小，防止内存无限增长
+    if (resolveCache.size > 50) {
+      const firstKey = resolveCache.keys().next().value
+      resolveCache.delete(firstKey)
+    }
     onlineCover.value = entry.cover
     onlineLrc.value = entry.lrc
     return entry
@@ -118,23 +128,21 @@ function bindAudio() {
   audio.addEventListener('error', async () => {
     const errType = audio.error?.code
     if (!errType) return
+    // code 1 = 加载中止（用户切歌/pause），非 URL 失效，忽略
+    if (errType === 1) return
     const track = currentTrack.value
     if (!track) return
 
     const key = trackKey(track)
-    const cached = resolveCache.get(key)
 
-    // code 1/2/3/4 = 加载中止/网络/解码/源不支持 → URL 失效，强制重新解析
-    if (errType === 1 || errType === 2 || errType === 3 || errType === 4) {
-      if (!cached) return
-      resolveCache.delete(key)
-      const fresh = await resolveOnline(track, true)
-      if (fresh?.audioUrl) {
-        audio.src = fresh.audioUrl
-        activeSrc = fresh.audioUrl
-        resolveError.value = ''
-        audio.play().catch(() => {})
-      }
+    // code 2/3/4 = 网络/解码/源不支持 → URL 失效，强制重新解析
+    resolveCache.delete(key)
+    const fresh = await resolveOnline(track, true)
+    if (fresh?.audioUrl) {
+      audio.src = fresh.audioUrl
+      activeSrc = fresh.audioUrl
+      resolveError.value = ''
+      audio.play().catch(() => {})
     }
   })
 }
@@ -162,6 +170,7 @@ async function load() {
     if (tracks.value.length) bindAudio()
   } catch (e) {
     tracks.value = []
+    initialized = false
   } finally {
     loading.value = false
   }
@@ -241,7 +250,9 @@ function prev() {
 function seek(e) {
   const track = currentTrack.value
   if (!track) return
+  if (!e.currentTarget) return
   const rect = e.currentTarget.getBoundingClientRect()
+  if (!rect.width) return
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   if (!activeSrc) {
     play()
