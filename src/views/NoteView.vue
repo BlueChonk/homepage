@@ -8,10 +8,6 @@ const records = ref([])
 const loading = ref(true)
 const error = ref('')
 
-const currentPage = ref(1)
-const pageSize = 8
-const jumpPageInput = ref('')
-
 const activeRecordId = ref('')
 const content = ref('')
 const contentLoading = ref(false)
@@ -49,25 +45,6 @@ function parseJsonl(text) {
 }
 
 /* ===== 计算属性 ===== */
-const totalPages = computed(() => Math.max(1, Math.ceil(records.value.length / pageSize)))
-
-const pagedRecords = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return records.value.slice(start, start + pageSize)
-})
-
-const pageNumbers = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages = [1]
-  if (current > 3) pages.push('...')
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
-  if (current < total - 2) pages.push('...')
-  pages.push(total)
-  return pages
-})
-
 const recordMap = computed(() => {
   const m = new Map()
   for (const p of records.value) m.set(p.id, p)
@@ -76,21 +53,6 @@ const recordMap = computed(() => {
 
 const activeRecord = computed(() => recordMap.value.get(activeRecordId.value) || null)
 const isListView = computed(() => !activeRecordId.value)
-
-/* ===== 分页 ===== */
-function goToPage(page) {
-  if (page < 1 || page > totalPages.value || page === currentPage.value) return
-  currentPage.value = page
-  scrollListToTop()
-}
-function goPrev() { goToPage(currentPage.value - 1) }
-function goNext() { goToPage(currentPage.value + 1) }
-
-function handleJump() {
-  const n = parseInt(jumpPageInput.value, 10)
-  if (!isNaN(n) && n >= 1 && n <= totalPages.value) goToPage(n)
-  jumpPageInput.value = ''
-}
 
 /* ===== 详情 ===== */
 async function openRecord(record) {
@@ -209,13 +171,6 @@ function onMdRendered(e) {
 }
 
 /* ===== 列表滚动 ===== */
-function scrollListToTop() {
-  nextTick(() => {
-    const body = document.querySelector('.app-body')
-    if (body) body.scrollTo({ top: 0, behavior: 'smooth' })
-  })
-}
-
 onMounted(async () => {
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}note.jsonl`, { cache: 'no-cache' })
@@ -260,7 +215,7 @@ onUnmounted(() => {
       <template v-else>
         <div class="card-list">
           <article
-            v-for="record in pagedRecords"
+            v-for="record in records"
             :key="record.id"
             class="record-card"
             @click="openRecord(record)"
@@ -284,21 +239,7 @@ onUnmounted(() => {
           </article>
         </div>
 
-        <div v-if="!pagedRecords.length" class="list-empty">暂无记录</div>
-
-        <div v-if="totalPages > 1" class="pagination">
-          <button class="page-btn" :disabled="currentPage <= 1" @click="goPrev">上一页</button>
-          <template v-for="(p, idx) in pageNumbers" :key="idx">
-            <span v-if="p === '...'" class="page-ellipsis">...</span>
-            <button v-else class="page-num" :class="{ active: p === currentPage }" @click="goToPage(p)">{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage >= totalPages" @click="goNext">下一页</button>
-          <div class="jump-box">
-            <span class="jump-label">跳至</span>
-            <input v-model.number="jumpPageInput" class="jump-input" type="number" min="1" :max="totalPages" placeholder="页" @keyup.enter="handleJump" />
-            <button class="jump-go" @click="handleJump">GO</button>
-          </div>
-        </div>
+        <div v-if="!records.length" class="list-empty">暂无记录</div>
       </template>
     </div>
 
@@ -544,83 +485,6 @@ onUnmounted(() => {
   border-color: transparent;
   box-shadow: 0 4px 14px var(--accent-soft);
   transform: translateY(-50%) translateX(2px);
-}
-
-/* 分页 */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 36px;
-  padding-top: 24px;
-  flex-wrap: wrap;
-}
-.page-btn, .page-num {
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 7px 15px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.18s ease;
-  min-width: 40px;
-  text-align: center;
-}
-.page-btn:hover:not(:disabled),
-.page-num:hover:not(.active) {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-}
-.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.page-num.active {
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  border-color: transparent;
-  box-shadow: 0 3px 12px var(--accent-soft);
-  font-weight: 600;
-}
-.page-ellipsis { color: var(--text-tertiary); font-size: 13px; padding: 0 4px; }
-.jump-box { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
-.jump-label { font-size: 13px; color: var(--text-tertiary); }
-.jump-input {
-  width: 52px;
-  font-family: inherit;
-  font-size: 13px;
-  text-align: center;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 4px;
-  outline: none;
-  transition: border-color 0.18s ease;
-}
-.jump-input:focus {
-  border-color: var(--accent-border);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.jump-input::placeholder { color: var(--text-tertiary); }
-.jump-input::-webkit-inner-spin-button,
-.jump-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.jump-go {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  border: none;
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-.jump-go:hover {
-  box-shadow: 0 3px 12px var(--accent-soft);
-  transform: translateY(-1px);
 }
 
 /* ===== 详情视图 ===== */
@@ -1280,8 +1144,6 @@ html[data-theme="dark"] .md-body :deep(.md-render-inner pre.shiki span) {
   .note-list-view { padding: 20px 16px 40px; }
   .record-card { padding: 18px 18px 16px; }
   .card-title { font-size: 15px; }
-  .pagination { gap: 4px; }
-  .jump-box { margin-left: 0; margin-top: 8px; }
   .detail-topbar { padding: 14px 16px 0; }
   .detail-title { display: none; }
   .md-body :deep(.md-render-inner) { font-size: 15px; }
