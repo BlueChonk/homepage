@@ -41,6 +41,41 @@ function clearPlayError() {
   if (playErrorTimer) clearTimeout(playErrorTimer)
 }
 
+/* VIP 检测：播放后检查 duration 是否有效
+ * 核心原理：能正常播放的歌曲会触发 loadedmetadata，duration 变为有效值，时间条能渲染；
+ *          VIP/无法播放的歌曲音频流无效，duration 一直是 NaN/0，时间条无法渲染。
+ */
+let vipCheckTimer = null
+const VIP_CHECK_DELAY = 3000 // 3秒后检查（loadedmetadata 通常在1-2秒内触发）
+const VIP_MIN_DURATION = 10   // 有效时长阈值（秒），低于此值视为试听片段
+
+function startVipCheck(track) {
+  clearVipCheck()
+  vipCheckTimer = setTimeout(() => {
+    vipCheckTimer = null
+    const dur = audio.duration
+    // duration 无效（NaN/0）→ VIP 歌曲，音频流为空
+    if (!isFinite(dur) || dur <= 0) {
+      setPlayError(`"${track?.title || track?.name || ''}" 可能是 VIP 歌曲，暂不支持播放`)
+      audio.pause()
+      audio.removeAttribute('src')
+      playing.value = false
+    } else if (dur < VIP_MIN_DURATION) {
+      setPlayError(`"${track?.title || track?.name || ''}" 可能是 VIP 试听片段，暂不支持完整播放`)
+      audio.pause()
+      audio.removeAttribute('src')
+      playing.value = false
+    }
+  }, VIP_CHECK_DELAY)
+}
+
+function clearVipCheck() {
+  if (vipCheckTimer) {
+    clearTimeout(vipCheckTimer)
+    vipCheckTimer = null
+  }
+}
+
 // URL 缓存: { trackKey: { audioUrl, cover, lrc, expiresAt } }
 const resolveCache = new Map()
 
@@ -120,6 +155,10 @@ function bindAudio() {
   audio.addEventListener('loadedmetadata', () => {
     duration.value = audio.duration || 0
     currentTime.value = 0
+    // duration 有效 → 歌曲可正常播放，取消 VIP 检测
+    if (isFinite(audio.duration) && audio.duration > 0) {
+      clearVipCheck()
+    }
     if (pendingSeek !== null) {
       audio.currentTime = Math.min(audio.duration || 0, pendingSeek)
       currentTime.value = audio.currentTime
@@ -132,8 +171,20 @@ function bindAudio() {
   })
   audio.addEventListener('durationchange', () => {
     duration.value = audio.duration || 0
+    // duration 变为有效值 → 取消 VIP 检测
+    if (isFinite(audio.duration) && audio.duration > 0) {
+      clearVipCheck()
+    }
   })
   audio.addEventListener('ended', () => next())
+  audio.addEventListener('stalled', () => {
+    // 音频下载停滞且 duration 无效 → VIP 歌曲返回了空流，提前触发检测
+    const dur = audio.duration
+    if (!isFinite(dur) || dur <= 0) {
+      const track = currentTrack.value
+      if (track) startVipCheck(track)
+    }
+  })
   audio.addEventListener('play', () => {
     playing.value = true
     duration.value = audio.duration || duration.value
@@ -160,6 +211,7 @@ function bindAudio() {
       audio.play().catch(() => {
         setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
       })
+      startVipCheck(track)
     } else {
       setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
     }
@@ -218,6 +270,7 @@ async function play(i) {
   currentTime.value = 0
   duration.value = 0
   activeKey = trackKey(track)
+  clearVipCheck() // 切歌时清除上一次的 VIP 检测
 
   if (track.url && track.online === false) {
     const base = import.meta.env.BASE_URL || '/'
@@ -227,6 +280,7 @@ async function play(i) {
     audio.play().catch(() => {
       setPlayError(`"${track.title || track.name}" 播放失败，请稍后重试`)
     })
+    startVipCheck(track)
     return
   }
 
@@ -238,6 +292,7 @@ async function play(i) {
     audio.play().catch(() => {
       setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
     })
+    startVipCheck(track)
   } else if (track.url) {
     const base = import.meta.env.BASE_URL || '/'
     const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
@@ -246,6 +301,7 @@ async function play(i) {
     audio.play().catch(() => {
       setPlayError(`"${track.title || track.name}" 播放失败，请稍后重试`)
     })
+    startVipCheck(track)
   } else {
     setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
   }
