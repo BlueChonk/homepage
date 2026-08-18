@@ -56,7 +56,6 @@ homepage/
 │   ├── parse-qq-playlist.mjs # 解析 QQ 音乐歌单
 │   ├── generate-manifest.mjs# 生成清单
 │   ├── gen-feed.mjs         # 合并日志/笔记 Feed
-│   └── fetch-163-lyrics.mjs # 网易云歌词拉取
 ├── public/                  # 静态资源
 │   ├── audio/               # 音效文件
 │   ├── log/                 # 日志 Markdown 源文件
