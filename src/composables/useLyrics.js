@@ -93,10 +93,33 @@ export function useLyrics() {
       raw.value = ''
       failed.value = false
 
-      // 优先使用 MetingJS 返回的 LRC 文本
+      // 优先使用 MetingJS 返回的 LRC
       if (lrc) {
-        raw.value = lrc
-        loading.value = false
+        // Meting API 的 lrc 字段可能返回 URL 而非歌词文本，需要二次 fetch
+        const isUrl = typeof lrc === 'string' && (lrc.startsWith('http://') || lrc.startsWith('https://'))
+        if (isUrl) {
+          loading.value = true
+          try {
+            const res = await fetch(lrc, { cache: 'no-store' })
+            const text = await res.text()
+            if (id !== fetchId) return
+            // 确认返回的是 LRC 格式而非错误页面
+            if (text && (/\[\d{1,2}:\d{1,2}/.test(text) || text.includes('[ti:') || text.includes('[ar:'))) {
+              raw.value = text
+            } else {
+              // fetch 成功但不是有效 LRC，标记失败
+              failed.value = true
+            }
+          } catch {
+            if (id === fetchId) failed.value = true
+          } finally {
+            if (id === fetchId) loading.value = false
+          }
+        } else {
+          // lrc 直接是歌词文本
+          raw.value = lrc
+          loading.value = false
+        }
         return
       }
 
