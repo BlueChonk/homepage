@@ -348,10 +348,10 @@ function formatDate(date) {
   color: var(--text);
 }
 
-/* ===== 卡片网格 ===== */
+/* ===== 卡片网格：最少2列，根据设备宽度自动缩放 ===== */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 18px;
 }
 
@@ -598,24 +598,15 @@ function formatDate(date) {
 }
 
 /* ===== 响应式 ===== */
-@media (max-width: 1080px) {
-  .bgm-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 840px) {
-  .bgm-grid { grid-template-columns: repeat(2, 1fr); }
-}
 @media (max-width: 768px) {
   .bangumi-page { padding: 24px 16px 0; }
   .bgm-title { font-size: 20px; }
 }
 @media (max-width: 600px) {
-  .bgm-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .bgm-grid { gap: 12px; }
   .bgm-tabs { gap: 6px; }
   .bgm-tab { padding: 6px 14px; font-size: 13px; }
   .bgm-detail-panel { flex-direction: column; }
   .bgm-detail-cover { aspect-ratio: 3 / 1.5; }
-}
-@media (max-width: 380px) {
-  .bgm-grid { grid-template-columns: 1fr; }
 }
 </style>
