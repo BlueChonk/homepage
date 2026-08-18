@@ -77,9 +77,9 @@ function resolveUrl(u) {
   return u.startsWith('/') ? base.replace(/\/$/, '') + u : u
 }
 
-/* ===== 歌词状态：跟随当前曲目加载 LRC，按播放时间计算高亮行 ===== */
+/* ===== 歌词状态：优先使用 MetingJS 返回的在线歌词，回退到本地 lyric URL ===== */
 export function useLyrics() {
-  const { currentTrack, currentTime, seekTo, play } = usePlayer()
+  const { currentTrack, currentTime, seekTo, play, onlineLrc } = usePlayer()
 
   const raw = ref('')
   const loading = ref(false)
@@ -87,11 +87,20 @@ export function useLyrics() {
   let fetchId = 0
 
   watch(
-    currentTrack,
-    async (track) => {
+    [currentTrack, onlineLrc],
+    async ([track, lrc]) => {
       const id = ++fetchId
       raw.value = ''
       failed.value = false
+
+      // 优先使用 MetingJS 返回的 LRC 文本
+      if (lrc) {
+        raw.value = lrc
+        loading.value = false
+        return
+      }
+
+      // 回退：从 track.lyric URL 加载本地歌词
       if (!track || !track.lyric) {
         loading.value = false
         return

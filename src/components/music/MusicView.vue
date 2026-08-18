@@ -192,7 +192,7 @@ onUnmounted(() => {
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
             </div>
-            <div v-if="resolving" class="resolving-hint">🔍 B 站搜索中…</div>
+            <div v-if="resolving" class="resolving-hint">🔍 QQ 音乐解析中…</div>
             <div v-else-if="resolveError" class="resolve-error">⚠️ {{ resolveError }}</div>
           </div>
 
@@ -307,7 +307,7 @@ onUnmounted(() => {
           <aside class="playlist-drawer">
             <div class="drawer-head">
               <span class="list-title">在线曲库</span>
-              <span class="drawer-count">{{ tracks.length }} 首 · B 站在线播放</span>
+              <span class="drawer-count">{{ tracks.length }} 首 · QQ 音乐在线播放</span>
               <button class="drawer-close" @click="listOpen = false" aria-label="关闭播放列表">✕</button>
             </div>
             <ul class="list">
@@ -344,7 +344,7 @@ onUnmounted(() => {
       <div class="state empty">
         <div class="empty-emoji">🎵</div>
         <p>在线曲库暂无歌曲。</p>
-        <p class="hint">编辑 <code>public/music-manifest.jsonl</code> 添加歌曲（仅需标题和歌手），播放时自动从 B 站搜索。</p>
+        <p class="hint">编辑 <code>public/music-manifest.jsonl</code> 添加歌曲（仅需标题和歌手），播放时自动从 QQ 音乐解析。</p>
       </div>
     </template>
   </section>

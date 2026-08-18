@@ -119,34 +119,7 @@ export default defineConfig({
         return { name, url, title: base, ...(thumb ? { thumb } : {}) }
       },
     }),
-    // 音乐：已改为手动维护 public/music-manifest.jsonl（在线 B 站搜索模式）
-    // 不再自动扫描 public/music/ 目录生成清单
-    // manifestPlugin({
-    //   dir: 'music',
-    //   outFile: 'music-manifest.jsonl',
-    //   urlBase: '/music',
-    //   test: (f) => /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(f),
-    //   mapItem: (name, url) => {
-    //     const base = name.replace(/\.[^.]+$/, '')
-    //     const m = base.match(/^(.+?)\s+-\s+(.+)$/)
-    //     const lyricName = base + '.lrc'
-    //     const lyric = fs.existsSync(path.resolve(__dirname, 'public', 'music', lyricName))
-    //       ? `/music/${encodeURIComponent(lyricName)}`
-    //       : ''
-    //     const coverExt = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].find((ext) =>
-    //       fs.existsSync(path.resolve(__dirname, 'public', 'music', `${base}.${ext}`))
-    //     )
-    //     const cover = coverExt ? `/music/${encodeURIComponent(`${base}.${coverExt}`)}` : ''
-    //     return {
-    //       name,
-    //       url,
-    //       title: m ? m[2].trim() : base,
-    //       artist: m ? m[1].trim() : '',
-    //       ...(lyric ? { lyric } : {}),
-    //       ...(cover ? { cover } : {}),
-    //     }
-    //   },
-    // }),
+    // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
     // 记录：public/records/*.md → public/records-manifest.jsonl
     // 输出结构兼容 RecordsView：{ id, file, title, category, date, excerpt }
     // file 保留原始文件名（不编码），由 RecordsView 用 encodeURI 统一编码
