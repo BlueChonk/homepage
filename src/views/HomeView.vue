@@ -1,10 +1,26 @@
 <script setup>
-import { ref, h, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import MarkdownPreview from '../components/common/MarkdownPreview.vue'
-import PhoebePoke from '../components/audio/PhoebePoke.vue'
-import CialloGreet from '../components/audio/CialloGreet.vue'
-import AppFooter from '../components/common/AppFooter.vue'
-import HomeMap from '../components/map/HomeMap.vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import PhoebePoke from '../components/PhoebePoke.vue'
+import CialloGreet from '../components/CialloGreet.vue'
+import AppFooter from '../components/AppFooter.vue'
+import HomeMap from '../components/HomeMap.vue'
+import MarkdownPreview from '../components/MarkdownPreview.vue'
+import { useLog } from '../composables/useLog'
+import { useNotes } from '../composables/useNotes'
+
+const emit = defineEmits(['navigate'])
+function viewAllLogs() {
+  emit('navigate', 'log')
+}
+function viewAllNotes() {
+  emit('navigate', 'notes')
+}
+
+/* 日志时间线：只显示最近 2 条 */
+const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog(2)
+
+/* 笔记预览：只显示最近 2 篇 */
+const { notes, notesLoading, visibleNotes } = useNotes(2)
 
 const phrases = [
   '热爱二次元的技术宅',
@@ -41,133 +57,10 @@ function tick() {
 
 onMounted(() => {
   timer = setTimeout(tick, 400)
-  feedTitleTimer = setTimeout(cycleFeedTitle, 600)
 })
 onUnmounted(() => {
   clearTimeout(timer)
-  clearTimeout(feedTitleTimer)
 })
-
-const hobbies = []
-
-/* Feed 标题动态切换：在多个英文词间轮播 */
-const feedTitles = ['Feed', 'Logs', 'Updates', 'Posts']
-const feedTitle = ref('Feed')
-let feedTitleTimer = null
-let feedTitleIdx = 0
-let feedCharIdx = 0
-let feedDeleting = false
-
-function cycleFeedTitle() {
-  const cur = feedTitles[feedTitleIdx]
-  if (!feedDeleting) {
-    feedCharIdx++
-    feedTitle.value = cur.slice(0, feedCharIdx)
-    if (feedCharIdx >= cur.length) {
-      feedDeleting = true
-      feedTitleTimer = setTimeout(cycleFeedTitle, 1800)
-      return
-    }
-  } else {
-    feedCharIdx--
-    feedTitle.value = cur.slice(0, feedCharIdx)
-    if (feedCharIdx <= 0) {
-      feedDeleting = false
-      feedTitleIdx = (feedTitleIdx + 1) % feedTitles.length
-    }
-  }
-  feedTitleTimer = setTimeout(cycleFeedTitle, feedDeleting ? 40 : 90)
-}
-
-/* Feed 模块：默认只显示最近 2 条，可切换为显示全部 */
-const showAllLogs = ref(false)
-function toggleLogMode() {
-  showAllLogs.value = !showAllLogs.value
-}
-
-/* 动态模块：数据来自 public/feeds.md（由 scripts/gen-feed.mjs 合并 public/feeds/*.md 生成）。
-   格式：每个日志用日期作为一级标题（# YYYY-MM-DD），正文跟在其后；
-   新增/修改日志只需往 public/feeds/ 加/改一个 md 文件，构建或 dev 保存时会自动重新合并，无需改动组件。 */
-const myLogs = ref([])
-const logLoading = ref(true)
-const visibleLogs = computed(() =>
-  showAllLogs.value ? myLogs.value : myLogs.value.slice(0, 2)
-)
-
-/* 日志按日期排序：新日期在前（“最近两条”以时间排序为准） */
-function dateKey(date) {
-  const m = String(date || '').match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
-  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : ''
-}
-
-onMounted(async () => {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}feeds.md`, { cache: 'no-cache' })
-    const md = await res.text()
-    myLogs.value = parseFeed(md).sort((a, b) =>
-      dateKey(b.date).localeCompare(dateKey(a.date))
-    )
-  } catch (e) {
-    console.error('读取 feeds.md 失败：', e)
-    myLogs.value = []
-  } finally {
-    logLoading.value = false
-  }
-})
-
-/* 解析 feeds.md：以 "# 日期" 为分隔，标题下的连续文本作为该日正文。 */
-function parseFeed(md) {
-  const logs = []
-  let cur = null
-  const flush = () => {
-    if (cur) {
-      cur.text = cur.text.trim()
-      logs.push(cur)
-    }
-  }
-  for (const raw of md.split('\n')) {
-    const line = raw.replace(/\s+$/, '')
-    const m = line.match(/^#\s+(.+?)\s*$/)
-    if (m) {
-      flush()
-      cur = { date: m[1], text: '' }
-    } else if (cur) {
-      cur.text += line + '\n'
-    }
-  }
-  flush()
-  return logs
-}
-
-/* ===== 日志正文外链：一律新标签页打开（与记录一致） =====
-   MarkdownPreview 渲染完成后派发 md-rendered，这里给所有跨域 http(s) 外链
-   注入 target="_blank" rel="noopener noreferrer"，站内相对链接/锚点保持不变。 */
-function externalizeLogLinks(a) {
-  const href = a.getAttribute('href') || ''
-  if (!/^https?:\/\//i.test(href)) return
-  let external = true
-  try {
-    const u = new URL(href, location.href)
-    external = u.origin !== location.origin
-  } catch (e) {
-    external = true
-  }
-  if (external) {
-    a.setAttribute('target', '_blank')
-    a.setAttribute('rel', 'noopener noreferrer')
-  }
-}
-
-function onLogRendered(e) {
-  const root = e.currentTarget
-  if (!root) return
-  root.querySelectorAll('a[href]').forEach(externalizeLogLinks)
-}
-
-watch(myLogs, () => {
-  // 渲染由 MarkdownPreview 的 md-rendered 事件驱动，无需此处手动处理
-})
-onUnmounted(() => {})
 </script>
 
 <template>
@@ -191,16 +84,14 @@ onUnmounted(() => {})
       </div>
     </section>
 
-    <!-- Feed：竖向时间线，避免横向分割线与页脚 --- 重复堆叠 -->
+    <!-- Log 动态时间线（最近 2 条） -->
     <section class="my-log">
       <div class="my-log-head">
         <h2 class="my-log-title">
-          {{ feedTitle }}
+          {{ logTitle }}
           <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
         </h2>
-        <button class="my-log-toggle" type="button" @click="toggleLogMode">
-          {{ showAllLogs ? 'RECENT 2' : 'ALL' }}
-        </button>
+        <button class="my-log-toggle" type="button" @click="viewAllLogs">ALL</button>
       </div>
       <ul class="my-log-list">
         <li v-for="(log, i) in visibleLogs" :key="i" class="my-log-item">
@@ -217,15 +108,51 @@ onUnmounted(() => {})
       <p v-show="logLoading" class="my-log-loading">加载中…</p>
     </section>
 
-    <!-- 3D 地球 + 居住地：独立模块，位于 Feed 与 Footprints 之间 -->
+    <!-- Note 笔记预览（最近 2 篇） -->
+    <section class="my-note">
+      <div class="my-note-head">
+        <h2 class="my-note-title">
+          Note
+          <span v-if="notes.length" class="my-note-count">{{ notes.length }}</span>
+        </h2>
+        <button class="my-note-toggle" type="button" @click="viewAllNotes">ALL</button>
+      </div>
+      <div class="my-note-list">
+        <article
+          v-for="note in visibleNotes"
+          :key="note.id"
+          class="my-note-card"
+          @click="viewAllNotes"
+        >
+          <h3 class="my-note-card-title">
+            <span class="my-note-card-bar" aria-hidden="true"></span>
+            <span class="my-note-card-text">{{ note.title }}</span>
+          </h3>
+          <div class="my-note-card-meta">
+            <span v-if="note.date" class="my-note-card-date">{{ note.date }}</span>
+            <span v-if="note.wordCount" class="my-note-card-words">{{ note.wordCount.toLocaleString('en-US') }} 字</span>
+          </div>
+          <div v-if="note.excerpt" class="my-note-card-excerpt">
+            <MarkdownPreview :source="note.excerpt" variant="note-excerpt" class="my-note-card-excerpt-md" />
+          </div>
+          <span class="my-note-card-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </span>
+        </article>
+        <div v-if="!notesLoading && notes.length === 0" class="my-note-empty">暂无笔记</div>
+      </div>
+      <p v-show="notesLoading" class="my-note-loading">加载中…</p>
+    </section>
+
+    <!-- 3D 地球 + 居住地 -->
     <section class="my-globe">
       <div class="my-globe-head">
         <h2 class="my-globe-title">Residence</h2>
       </div>
       <HomeMap />
     </section>
-
-    
 
     <AppFooter />
   </div>
@@ -281,26 +208,9 @@ onUnmounted(() => {})
     gap: 16px;
   }
   .phoebe-inline :deep(.poke-fig img) { width: 88px; }
-  .my-log,
-  .my-globe,
-  .my-footprints {
-    max-width: 100%;
-    padding: 0 4px 0 0;
-  }
-  .my-log-time { flex-basis: 80px; }
-  .my-log-dash { margin-right: 8px; }
 }
 @media (max-width: 440px) {
   .home-page { padding: 20px 4px 0; }
-  .my-log,
-  .my-globe,
-  .my-footprints {
-    max-width: 100%;
-    padding: 0 2px 0 0;
-  }
-  .my-log-time { flex-basis: 72px; font-size: 11px; }
-  .my-log-dash { margin-right: 6px; }
-  .my-log-body { font-size: 13px; }
 }
 
 .avatar-ring {
@@ -374,210 +284,6 @@ onUnmounted(() => {})
   50% { opacity: 0; }
 }
 
-.hobby-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  width: 100%;
-  max-width: 760px;
-  margin-top: 52px;
-}
-.hobby-card {
-  padding: 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-}
-.hobby-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--accent-border);
-}
-.hobby-icon {
-  font-size: 24px;
-  color: var(--accent);
-}
-.hobby-name {
-  margin-top: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-}
-.hobby-desc {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-/* ===== 我的日志：竖向时间线（无横向分割线，避免与页脚 --- 重复） ===== */
-.my-log {
-  width: 100%;
-  max-width: 860px;
-  margin: 44px auto 0;
-  padding: 0 20px;
-  text-align: left;
-}
-.my-log-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 16px;
-}
-.my-log-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.my-log-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-}
-.my-log-toggle {
-  cursor: pointer;
-  border: none;
-  background: none;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  letter-spacing: .05em;
-  font-family: inherit;
-  transition: color .15s ease;
-}
-.my-log-toggle:hover {
-  color: var(--accent);
-}
-
-.my-log-list {
-  position: relative;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.my-log-item {
-  display: flex;
-  padding: 9px 0;
-  align-items: flex-start;
-}
-.my-log-time {
-  flex: 0 0 104px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .03em;
-  white-space: nowrap;
-  padding-top: 1px;
-}
-.my-log-dash {
-  flex: 0 0 auto;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--text-tertiary);
-  user-select: none;
-  margin-left: -2px;
-  margin-right: 10px;
-}
-.my-log-body {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.my-log-md {
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--text-secondary);
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.my-log-md :deep(.md-render-inner) {
-  background: transparent;
-  padding: 0;
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC',
-    'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-.my-log-md :deep(.md-render-inner > :first-child) {
-  margin-top: 0;
-}
-.my-log-md :deep(.md-render-inner > :last-child) {
-  margin-bottom: 0;
-}
-.my-log-md :deep(.md-render-inner h1),
-.my-log-md :deep(.md-render-inner h2),
-.my-log-md :deep(.md-render-inner h3),
-.my-log-md :deep(.md-render-inner h4) {
-  color: var(--text);
-  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
-  margin: 1.3em 0 0.5em;
-}
-.my-log-md :deep(.md-render-inner h1) { font-size: 1.4em; }
-.my-log-md :deep(.md-render-inner h2) { font-size: 1.25em; }
-.my-log-md :deep(.md-render-inner h3) { font-size: 1.1em; }
-/* 行内代码沿用记录样式：暖陶土底 + 强调色文字 */
-.my-log-md :deep(.md-render-inner :not(pre) > code) {
-  background: var(--md-inline-code-bg);
-  color: var(--md-inline-code-fg);
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 0.9em;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
-}
-.my-log-md :deep(.md-render-inner a) {
-  color: var(--accent-strong);
-  text-decoration: none;
-  border-bottom: 1px solid var(--accent-border);
-}
-.my-log-md :deep(.md-render-inner a:hover) {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-.my-log-md :deep(.md-render-inner a[target="_blank"])::after {
-  content: "↗";
-  margin-left: 3px;
-  font-size: 0.78em;
-  color: var(--text-tertiary);
-}
-.my-log-md :deep(.md-render-inner blockquote) {
-  margin: 0.8em 0;
-  padding: 6px 14px;
-  border-left: 3px solid var(--accent);
-  background: var(--bg-soft);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  color: var(--text-secondary);
-}
-.my-log-md :deep(.md-render-inner pre.shiki),
-.my-log-md :deep(.md-render-inner .shiki) {
-  background: var(--md-code-bg) !important;
-  border: 1px solid var(--md-code-border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.my-log-loading,
-.my-log-empty {
-  padding: 10px 0;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
 /* ===== 3D 地球 + 居住地模块 ===== */
 .my-globe {
   width: 100%;
@@ -601,23 +307,220 @@ onUnmounted(() => {})
   color: var(--accent);
 }
 
-/* ===== 足迹城市列表 ===== */
-.my-footprints {
+@media (max-width: 640px) {
+  .my-globe {
+    max-width: 100%;
+    padding: 0 4px 0 0;
+  }
+}
+@media (max-width: 440px) {
+  .my-globe {
+    max-width: 100%;
+    padding: 0 2px 0 0;
+  }
+}
+
+/* ===== Note 笔记预览模块 ===== */
+.my-note {
   width: 100%;
   max-width: 860px;
   margin: 44px auto 0;
   padding: 0 20px;
   text-align: left;
 }
-.my-footprints-head {
-  padding-bottom: 14px;
+.my-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
 }
-.my-footprints-title {
+.my-note-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.28em;
+  letter-spacing: .28em;
   text-transform: uppercase;
   color: var(--accent);
+}
+.my-note-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.my-note-toggle {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  letter-spacing: .05em;
+  font-family: inherit;
+  transition: color .15s ease;
+}
+.my-note-toggle:hover {
+  color: var(--accent);
+}
+.my-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.my-note-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px 20px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  overflow: hidden;
+}
+.my-note-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.my-note-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text);
+  margin-bottom: 8px;
+  transition: color 0.2s ease;
+  overflow-wrap: anywhere;
+}
+.my-note-card-bar {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 1.1em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+.my-note-card-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-right: 44px;
+}
+.my-note-card:hover .my-note-card-title {
+  color: var(--accent-strong);
+}
+.my-note-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.my-note-card-date {
+  color: var(--text-tertiary);
+}
+.my-note-card-words {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+.my-note-card-words::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border);
+  margin-right: 10px;
+}
+.my-note-card-excerpt {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  padding-right: 44px;
+  overflow-wrap: anywhere;
+}
+.my-note-card-excerpt-md :deep(.md-render-inner) {
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.my-note-card-excerpt-md :deep(.md-render-inner > :first-child) { margin-top: 0; }
+.my-note-card-excerpt-md :deep(.md-render-inner > :last-child) { margin-bottom: 0; }
+.my-note-card-excerpt-md :deep(.md-render-inner p) { margin: 0; }
+.my-note-card-excerpt-md :deep(.md-render-inner a) {
+  color: var(--accent-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-border);
+}
+.my-note-card-excerpt-md :deep(.md-render-inner strong),
+.my-note-card-excerpt-md :deep(.md-render-inner code) {
+  color: var(--text);
+}
+.my-note-card-chevron {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease, box-shadow 0.2s ease;
+}
+.my-note-card-chevron svg {
+  width: 15px;
+  height: 15px;
+}
+.my-note-card:hover .my-note-card-chevron {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+  box-shadow: 0 4px 14px var(--accent-soft);
+  transform: translateY(-50%) translateX(2px);
+}
+.my-note-empty,
+.my-note-loading {
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 640px) {
+  .my-note {
+    max-width: 100%;
+    padding: 0 4px 0 0;
+  }
+}
+@media (max-width: 440px) {
+  .my-note {
+    max-width: 100%;
+    padding: 0 2px 0 0;
+  }
+  .my-note-card { padding: 18px 18px 16px; }
+  .my-note-card-title { font-size: 15px; }
 }
 </style>
