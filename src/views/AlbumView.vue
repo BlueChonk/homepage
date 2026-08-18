@@ -10,7 +10,14 @@ function parseJsonl(text) {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
-    .map((l) => JSON.parse(l))
+    .map((l) => {
+      try {
+        return JSON.parse(l)
+      } catch {
+        return null
+      }
+    })
+    .filter(Boolean)
 }
 
 async function loadManifest() {

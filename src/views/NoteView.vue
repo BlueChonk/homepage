@@ -88,6 +88,7 @@ let tocObserver = null
 let tocBuildObserver = null
 
 function buildToc() {
+  if (tocBuildObserver) { tocBuildObserver.disconnect(); tocBuildObserver = null }
   const root = detailRef.value
   const previewEl = root?.querySelector('.md-render-inner')
   if (!previewEl) {
@@ -119,6 +120,7 @@ function setupScrollSpy(container) {
   const headings = container.querySelectorAll('h1[id], h2[id], h3[id]')
   if (!headings.length) return
   const root = document.querySelector('.app-body')
+  if (!root) return
   tocObserver = new IntersectionObserver(
     (entries) => {
       let lastId = ''

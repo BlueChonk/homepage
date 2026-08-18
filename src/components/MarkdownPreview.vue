@@ -98,6 +98,7 @@ async function ensureMd() {
 
 async function render() {
   await ensureMd()
+  usedSlugs.clear()
   html.value = md.render(props.source || '')
   await nextTick()
   decorateCodeBlocks()
