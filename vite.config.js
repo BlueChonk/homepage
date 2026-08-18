@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
 import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
+import { fetchBangumi } from './scripts/fetch-bangumi.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -153,6 +154,16 @@ export default defineConfig({
         }
       },
     }),
+    // Bangumi 收藏：拉取用户的番剧/漫画/游戏收藏（想看/在看/看过），写入 public/bangumi.jsonl
+    {
+      name: 'bangumi:sync',
+      async buildStart() {
+        await fetchBangumi()
+      },
+      configureServer() {
+        fetchBangumi()
+      },
+    },
   ],
   base: './',
 })
