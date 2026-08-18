@@ -475,7 +475,7 @@ body {
 @media (max-width: 640px) {
   .my-log {
     max-width: 100%;
-    padding: 0 4px 0 0;
+    padding: 0 12px;
   }
   .my-log-time { flex-basis: 80px; }
   .my-log-dash { margin-right: 8px; }
@@ -483,7 +483,7 @@ body {
 @media (max-width: 440px) {
   .my-log {
     max-width: 100%;
-    padding: 0 2px 0 0;
+    padding: 0 8px;
   }
   .my-log-time { flex-basis: 72px; font-size: 11px; }
   .my-log-dash { margin-right: 6px; }

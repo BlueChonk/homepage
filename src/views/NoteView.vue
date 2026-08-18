@@ -732,7 +732,7 @@ onUnmounted(() => {
 @media (max-width: 720px) {
   .back-top-btn {
     right: 18px;
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    bottom: calc(18px + env(safe-area-inset-bottom));
     width: 40px;
     height: 40px;
   }

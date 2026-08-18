@@ -492,13 +492,13 @@ onUnmounted(() => {
 @media (max-width: 640px) {
   .my-note {
     max-width: 100%;
-    padding: 0 4px 0 0;
+    padding: 0 12px;
   }
 }
 @media (max-width: 440px) {
   .my-note {
     max-width: 100%;
-    padding: 0 2px 0 0;
+    padding: 0 8px;
   }
   .my-note-card { padding: 18px 18px 16px; }
   .my-note-card-title { font-size: 15px; }
