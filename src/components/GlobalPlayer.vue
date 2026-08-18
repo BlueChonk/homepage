@@ -2,8 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayer } from '../composables/usePlayer'
 
-const emit = defineEmits(['navigate'])
-
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
   volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
@@ -123,10 +121,6 @@ const shownTime = computed(() => {
   return currentTime.value
 })
 
-function goMusic() {
-  emit('navigate', 'music')
-}
-
 onMounted(() => {
   load()
   unsubProgress = onProgress((pct) => {
@@ -171,10 +165,10 @@ onUnmounted(() => {
 
       <div class="gp-ctrls">
         <div class="gp-info">
-          <img v-if="coverSrc" :src="coverSrc" alt="" class="gp-cover" @click="goMusic" />
-          <span v-else class="gp-cover gp-cover-note" @click="goMusic">♪</span>
+          <img v-if="coverSrc" :src="coverSrc" alt="" class="gp-cover" />
+          <span v-else class="gp-cover gp-cover-note">♪</span>
           <div class="gp-meta">
-            <span class="gp-title" :title="currentTrack?.title" @click="goMusic">{{ currentTrack?.title || currentTrack?.name }}</span>
+            <span class="gp-title" :title="currentTrack?.title">{{ currentTrack?.title || currentTrack?.name }}</span>
             <span v-if="currentTrack?.artist" class="gp-artist">{{ currentTrack.artist }}</span>
           </div>
           <span v-if="resolving" class="gp-resolving">解析中…</span>
