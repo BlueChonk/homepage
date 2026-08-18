@@ -351,7 +351,7 @@ function formatDate(date) {
 /* ===== 卡片网格 ===== */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 18px;
 }
 
@@ -599,10 +599,10 @@ function formatDate(date) {
 
 /* ===== 响应式 ===== */
 @media (max-width: 1080px) {
-  .bgm-grid { grid-template-columns: repeat(4, 1fr); }
+  .bgm-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 840px) {
-  .bgm-grid { grid-template-columns: repeat(3, 1fr); }
+  .bgm-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   .bangumi-page { padding: 24px 16px 0; }
