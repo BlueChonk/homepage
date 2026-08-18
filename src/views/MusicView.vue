@@ -5,8 +5,8 @@ import { useLyrics } from '../composables/useLyrics'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
-  volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
-  resolving, resolveError, onlineCover,
+  currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
+  onlineCover,
 } = usePlayer()
 
 const {
@@ -51,52 +51,6 @@ function toggleMobileView() {
 
 /* ---- 播放列表 ---- */
 const listOpen = ref(false)
-
-/* ---- 音量 ---- */
-const volOpen = ref(false)
-const volDragging = ref(false)
-const volTrackRef = ref(null)
-
-const vClickOutside = {
-  mounted(el, binding) {
-    el._clickOutside = (e) => {
-      if (!el.contains(e.target)) binding.value()
-    }
-    document.addEventListener('click', el._clickOutside)
-  },
-  unmounted(el) {
-    document.removeEventListener('click', el._clickOutside)
-  },
-}
-
-function onVolSeek(e) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const ratio = 1 - (e.clientY - rect.top) / rect.height
-  setVolume(Math.max(0, Math.min(1, ratio)))
-}
-
-function onVolDragStart(e) {
-  volDragging.value = true
-  onVolSeek(e)
-  window.addEventListener('pointermove', onVolDragMove)
-  window.addEventListener('pointerup', onVolDragEnd)
-  e.preventDefault()
-}
-
-function onVolDragMove(e) {
-  if (!volDragging.value) return
-  const track = volTrackRef.value
-  if (!track) return
-  const rect = track.getBoundingClientRect()
-  const ratio = 1 - (e.clientY - rect.top) / rect.height
-  setVolume(Math.max(0, Math.min(1, ratio)))
-}
-
-function onVolDragEnd() {
-  volDragging.value = false
-  window.removeEventListener('pointermove', onVolDragMove)
-  window.removeEventListener('pointerup', onVolDragEnd)
-}
 
 /* ---- 拖动进度条 ---- */
 const scrubbing = ref(false)
@@ -161,6 +115,7 @@ watch(activeIndex, () => {
 })
 
 onMounted(() => {
+  setVolume(1)
   load()
   unsubProgress = onProgress((pct) => {
     if (!scrubbing.value) paintBar(pct)
@@ -174,8 +129,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   unsubProgress?.()
-  window.removeEventListener('pointermove', onVolDragMove)
-  window.removeEventListener('pointerup', onVolDragEnd)
   if (mobileMq) {
     if (mobileMq.removeEventListener) mobileMq.removeEventListener('change', updateMobile)
     else mobileMq.removeListener(updateMobile)
@@ -194,9 +147,10 @@ onUnmounted(() => {
 
     <template v-else-if="tracks.length">
       <div class="player-main">
-        <!-- 歌词列表面板（浮层） -->
+        <!-- 播放列表面板（浮层） -->
+        <div v-if="listOpen" class="list-backdrop" @click="listOpen = false"></div>
         <Transition name="drawer">
-          <div v-if="listOpen" class="list-panel" v-click-outside="() => listOpen = false">
+          <div v-if="listOpen" class="list-panel">
             <div class="list-head">
               <span class="list-title">在线曲库</span>
               <span class="list-count">{{ tracks.length }} 首</span>
@@ -238,17 +192,14 @@ onUnmounted(() => {
               <span class="track-title">{{ currentTrack?.title || currentTrack?.name }}</span>
               <span v-if="currentTrack?.artist" class="track-artist">{{ currentTrack.artist }}</span>
             </div>
-            <div v-if="resolving" class="resolving-hint">🔍 QQ 音乐解析中…</div>
-            <div v-else-if="resolveError" class="resolve-error">⚠️ {{ resolveError }}</div>
             <div v-if="isMobile && lyricAvailable" class="mobile-toggle-hint">
               {{ mobileView === 'cover' ? '点击封面查看歌词' : '点击返回封面' }}
             </div>
           </div>
 
           <!-- 右侧：歌词区 -->
-          <div class="lyrics-zone">
+          <div class="lyrics-zone" @click="toggleMobileView">
             <div class="lyrics-head">
-              <span v-if="isMobile && mobileView === 'lyrics'" class="lyrics-back" @click="toggleMobileView">‹ 封面</span>
               <span class="now-label">
                 <span class="now-dot" :class="{ on: playing }"></span>
                 {{ playing ? 'NOW PLAYING' : 'PAUSED' }}
@@ -265,7 +216,7 @@ onUnmounted(() => {
                   :key="i"
                   class="lyric-line"
                   :class="{ active: i === activeIndex }"
-                  @click="seekLyric(l)"
+                  @click.stop="seekLyric(l)"
                 >
                   <span
                     v-for="(t, ti) in l.texts"
@@ -278,8 +229,8 @@ onUnmounted(() => {
             </div>
 
             <div v-else class="lyrics-empty">
-              <p class="lyrics-empty-main">{{ resolving ? '解析中…' : '暂无歌词' }}</p>
-              <p v-if="!lyricLoading && !resolving" class="lyrics-empty-hint">在线模式下不显示歌词</p>
+              <p class="lyrics-empty-main">暂无歌词</p>
+              <p v-if="!lyricLoading" class="lyrics-empty-hint">在线模式下不显示歌词</p>
             </div>
           </div>
         </div>
@@ -305,22 +256,7 @@ onUnmounted(() => {
 
           <!-- 控制按钮 -->
           <div class="ctrls">
-            <div class="ctrls-left">
-              <div class="vol-wrap" v-click-outside="() => volOpen = false">
-                <button class="btn" @click="volOpen = !volOpen" :title="volume === 0 ? '取消静音' : '音量'">
-                  <svg v-if="volume === 0" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4L15.2 10.6 12.5 7.9 11 9.3l2.7 2.7L11 14.7l1.5 1.4 2.7-2.7 2.7 2.7 1.4-1.4z" /></svg>
-                  <svg v-else-if="volume < 0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12z" /></svg>
-                  <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12zm-2-8.2v2.1a6 6 0 010 12.2v2.1A8 8 0 0014 3.8z" /></svg>
-                </button>
-                <div v-if="volOpen" class="vol-pop" @pointerdown.stop>
-                  <div ref="volTrackRef" class="vol-track" @pointerdown.prevent="onVolDragStart">
-                    <div class="vol-fill" :style="{ height: volume * 100 + '%' }"></div>
-                    <div class="vol-knob" :style="{ bottom: 'calc(' + volume * 100 + '% - 6px)' }"></div>
-                  </div>
-                  <span class="vol-pct">{{ Math.round(volume * 100) }}</span>
-                </div>
-              </div>
-            </div>
+            <div class="ctrls-left"></div>
 
             <div class="ctrls-center">
               <button class="btn" @click="prev" title="上一首">
@@ -336,7 +272,7 @@ onUnmounted(() => {
             </div>
 
             <div class="ctrls-right">
-              <button class="btn" :class="{ active: listOpen }" @click="listOpen = !listOpen" title="播放列表">
+              <button class="btn" :class="{ active: listOpen }" @click.stop="listOpen = !listOpen" title="播放列表">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z" /></svg>
               </button>
             </div>
@@ -482,14 +418,6 @@ html[data-theme="dark"] .stage-overlay {
 .track-artist {
   font-size: 13px;
   color: var(--text-tertiary);
-}
-.resolving-hint {
-  font-size: 13px;
-  color: var(--accent);
-}
-.resolve-error {
-  font-size: 13px;
-  color: var(--danger, #e5484d);
 }
 
 /* ===== 歌词区 ===== */
@@ -745,59 +673,12 @@ html[data-theme="dark"] .stage-overlay {
   height: 20px;
 }
 
-/* 音量弹出 */
-.vol-wrap {
-  position: relative;
-}
-.vol-pop {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  padding: 10px 0 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 90;
-}
-.vol-track {
-  position: relative;
-  width: 5px;
-  height: 80px;
-  border-radius: 999px;
-  background: var(--border-light);
-  cursor: pointer;
-}
-.vol-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
-  border-radius: 999px;
-}
-.vol-knob {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 2px solid var(--accent);
-}
-.vol-pct {
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
 /* ===== 播放列表面板 ===== */
+.list-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 84;
+}
 .list-panel {
   position: absolute;
   top: 10px;
@@ -1004,6 +885,9 @@ html[data-theme="dark"] .stage-overlay {
   .player-hero.mobile-toggle .hero-left {
     cursor: pointer;
   }
+  .player-hero.mobile-toggle .lyrics-zone {
+    cursor: pointer;
+  }
   .player-hero.mobile-toggle:not(.show-lyrics) .lyrics-zone {
     display: none;
   }
@@ -1025,15 +909,6 @@ html[data-theme="dark"] .stage-overlay {
     color: var(--text-tertiary);
     opacity: 0.7;
     animation: pulse 2s ease-in-out infinite;
-  }
-  .lyrics-back {
-    flex: 0 0 auto;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    cursor: pointer;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
   }
   .list-panel {
     right: 22px;
@@ -1140,10 +1015,6 @@ html[data-theme="dark"] .stage-overlay {
   .btn-play {
     width: 40px;
     height: 40px;
-  }
-  /* 小屏隐藏音量按钮 */
-  .vol-wrap {
-    display: none;
   }
 }
 
