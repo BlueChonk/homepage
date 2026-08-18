@@ -34,19 +34,11 @@ function formatTime(sec) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/* ---- 移动端封面/歌词切换 ---- */
-const mobileView = ref('cover') // 'cover' | 'lyrics'
-const isMobile = ref(false)
-let mobileMq = null
+/* ---- 封面/歌词切换（所有屏幕尺寸通用） ---- */
+const view = ref('cover') // 'cover' | 'lyrics'
 
-function updateMobile(e) {
-  isMobile.value = e.matches
-  if (!e.matches) mobileView.value = 'cover'
-}
-
-function toggleMobileView() {
-  if (!isMobile.value) return
-  mobileView.value = mobileView.value === 'cover' ? 'lyrics' : 'cover'
+function toggleView() {
+  view.value = view.value === 'cover' ? 'lyrics' : 'cover'
 }
 
 /* ---- 播放列表 ---- */
@@ -155,20 +147,12 @@ onMounted(() => {
     if (!scrubbing.value) paintBar(pct)
   })
   paintBar(progress.value)
-  mobileMq = window.matchMedia('(max-width: 960px)')
-  updateMobile(mobileMq)
-  if (mobileMq.addEventListener) mobileMq.addEventListener('change', updateMobile)
-  else mobileMq.addListener(updateMobile)
 })
 
 onUnmounted(() => {
   unsubProgress?.()
   window.removeEventListener('pointermove', onVolDragMove)
   window.removeEventListener('pointerup', onVolDragEnd)
-  if (mobileMq) {
-    if (mobileMq.removeEventListener) mobileMq.removeEventListener('change', updateMobile)
-    else mobileMq.removeListener(updateMobile)
-  }
 })
 
 // 暴露 reload 方法供下拉刷新调用
@@ -216,13 +200,13 @@ defineExpose({ reload: load })
           </div>
         </Transition>
 
-        <!-- 主区域：封面 + 歌词 -->
+        <!-- 主区域：封面 + 歌词（点击切换） -->
         <div
           class="player-hero"
-          :class="{ 'mobile-toggle': isMobile, 'show-lyrics': isMobile && mobileView === 'lyrics' }"
+          :class="{ 'show-lyrics': view === 'lyrics' }"
         >
-          <!-- 左侧：封面/碟片 -->
-          <div class="hero-left" @click="toggleMobileView">
+          <!-- 封面/碟片 -->
+          <div class="hero-left" @click="toggleView">
             <div class="disc" :class="{ spinning: playing }">
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
@@ -231,13 +215,11 @@ defineExpose({ reload: load })
               <span class="track-title">{{ currentTrack?.title || currentTrack?.name }}</span>
               <span v-if="currentTrack?.artist" class="track-artist">{{ currentTrack.artist }}</span>
             </div>
-            <div v-if="isMobile && lyricAvailable" class="mobile-toggle-hint">
-              {{ mobileView === 'cover' ? '点击封面查看歌词' : '点击返回封面' }}
-            </div>
+            <div class="toggle-hint">点击查看歌词</div>
           </div>
 
-          <!-- 右侧：歌词区 -->
-          <div class="lyrics-zone" @click="toggleMobileView">
+          <!-- 歌词区 -->
+          <div class="lyrics-zone" @click="toggleView">
             <div class="lyrics-head">
               <span class="now-label">
                 <span class="now-dot" :class="{ on: playing }"></span>
@@ -248,7 +230,7 @@ defineExpose({ reload: load })
               <span v-else class="lyrics-state">在线播放 · 暂无歌词</span>
             </div>
 
-            <div v-if="lyricAvailable" ref="lyricBoxRef" class="lyrics-box">
+            <div v-if="lyricAvailable" ref="lyricBoxRef" class="lyrics-box" @click.stop>
               <div class="lyrics-inner">
                 <p
                   v-for="(l, i) in lyricLines"
@@ -271,6 +253,7 @@ defineExpose({ reload: load })
               <p class="lyrics-empty-main">暂无歌词</p>
               <p v-if="!lyricLoading" class="lyrics-empty-hint">在线模式下不显示歌词</p>
             </div>
+            <div class="toggle-hint">点击返回封面</div>
           </div>
         </div>
 
@@ -410,8 +393,29 @@ html[data-theme="dark"] .stage-overlay {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 28px;
   padding-bottom: 12px;
+  position: relative;
+}
+
+/* 默认显示封面，隐藏歌词 */
+.player-hero .lyrics-zone {
+  display: none;
+}
+.player-hero .hero-left {
+  display: flex;
+  cursor: pointer;
+}
+
+/* show-lyrics 模式：显示歌词，隐藏封面 */
+.player-hero.show-lyrics .lyrics-zone {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.player-hero.show-lyrics .hero-left {
+  display: none;
 }
 
 /* ===== 封面区 ===== */
@@ -483,11 +487,23 @@ html[data-theme="dark"] .stage-overlay {
   color: var(--text-tertiary);
 }
 
+/* 切换提示 */
+.toggle-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  letter-spacing: 0.05em;
+  animation: pulse 2s ease-in-out infinite;
+}
+
 /* ===== 歌词区 ===== */
 .lyrics-zone {
   min-width: 0;
   width: 100%;
   max-width: 680px;
+  margin: 0 auto;
+  cursor: pointer;
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -535,7 +551,6 @@ html[data-theme="dark"] .stage-overlay {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  cursor: pointer;
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12%, #000 88%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0, #000 12%, #000 88%, transparent 100%);
 }
@@ -1034,43 +1049,9 @@ html[data-theme="dark"] .stage-overlay {
   .lyrics-zone {
     max-width: 620px;
   }
-  .lyrics-box,
-  .lyrics-empty {
-    height: clamp(180px, 36vh, 340px);
-  }
-
-  /* 移动端封面/歌词切换模式 */
-  .player-hero.mobile-toggle {
-    position: relative;
-    gap: 0;
-  }
-  .player-hero.mobile-toggle .hero-left {
-    cursor: pointer;
-  }
-  .player-hero.mobile-toggle .lyrics-zone {
-    cursor: pointer;
-  }
-  .player-hero.mobile-toggle:not(.show-lyrics) .lyrics-zone {
-    display: none;
-  }
-  .player-hero.mobile-toggle.show-lyrics .hero-left {
-    display: none;
-  }
-  .player-hero.mobile-toggle.show-lyrics .lyrics-zone {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-  .player-hero.mobile-toggle.show-lyrics .lyrics-box,
-  .player-hero.mobile-toggle.show-lyrics .lyrics-empty {
+  .player-hero.show-lyrics .lyrics-box,
+  .player-hero.show-lyrics .lyrics-empty {
     height: clamp(280px, 50vh, 480px);
-  }
-  .mobile-toggle-hint {
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--text-tertiary);
-    opacity: 0.7;
-    animation: pulse 2s ease-in-out infinite;
   }
   .list-panel {
     right: 22px;
