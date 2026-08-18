@@ -7,7 +7,6 @@ import AboutView from './views/AboutView.vue'
 import AlbumView from './views/AlbumView.vue'
 import NoteView from './views/NoteView.vue'
 import MusicView from './components/music/MusicView.vue'
-import MiniPlayer from './components/common/MiniPlayer.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
@@ -46,8 +45,6 @@ onMounted(() => usePlayer().load())
         <MusicView v-else-if="activeView === 'music'" />
         <NoteView v-else-if="activeView === 'notes'" />
       </div>
-
-      <MiniPlayer @goto-music="activeView = 'music'" />
     </div>
   </ConfigProvider>
 </template>
