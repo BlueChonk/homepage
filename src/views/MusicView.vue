@@ -399,10 +399,10 @@ html[data-theme="dark"] .stage-overlay {
 .player-hero {
   flex: 1 1 auto;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 72px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 28px;
   padding-bottom: 12px;
 }
 
@@ -417,8 +417,8 @@ html[data-theme="dark"] .stage-overlay {
 }
 .disc {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 340px;
+  height: 340px;
   border-radius: 50%;
   border: 2px solid var(--border);
   background:
@@ -466,18 +466,20 @@ html[data-theme="dark"] .stage-overlay {
   gap: 4px;
 }
 .track-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--text);
 }
 .track-artist {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-tertiary);
 }
 
 /* ===== 歌词区 ===== */
 .lyrics-zone {
   min-width: 0;
+  width: 100%;
+  max-width: 680px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -555,13 +557,13 @@ html[data-theme="dark"] .stage-overlay {
   display: block;
 }
 .lyric-original {
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.6;
   color: var(--text-secondary);
 }
 .lyric-trans {
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--text-tertiary);
   opacity: 0.85;
 }
@@ -972,16 +974,13 @@ html[data-theme="dark"] .stage-overlay {
     padding: 8px 22px 0;
   }
   .player-hero {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    justify-items: center;
+    gap: 20px;
   }
   .disc {
-    width: 200px;
-    height: 200px;
+    width: 240px;
+    height: 240px;
   }
   .lyrics-zone {
-    width: 100%;
     max-width: 620px;
   }
   .lyrics-box,
@@ -1034,24 +1033,27 @@ html[data-theme="dark"] .stage-overlay {
   .player-main {
     padding: 6px 12px 0;
   }
+  .player-hero {
+    gap: 16px;
+  }
   .disc {
-    width: 170px;
-    height: 170px;
+    width: 190px;
+    height: 190px;
   }
   .track-title {
-    font-size: 15px;
+    font-size: 16px;
   }
   .track-artist {
-    font-size: 12px;
+    font-size: 13px;
+  }
+  .lyric-original {
+    font-size: 15px;
+  }
+  .lyric-trans {
+    font-size: 12.5px;
   }
   .lyrics-inner {
     padding: 80px 6px;
-  }
-  .lyric-original {
-    font-size: 13.5px;
-  }
-  .lyric-trans {
-    font-size: 11.5px;
   }
   .seek-row {
     gap: 8px;
@@ -1094,8 +1096,8 @@ html[data-theme="dark"] .stage-overlay {
 /* ===== 响应式：小屏手机 ===== */
 @media (max-width: 380px) {
   .disc {
-    width: 140px;
-    height: 140px;
+    width: 150px;
+    height: 150px;
   }
   .disc::after {
     width: 20px;
@@ -1105,10 +1107,10 @@ html[data-theme="dark"] .stage-overlay {
     font-size: 14px;
   }
   .lyric-original {
-    font-size: 12.5px;
+    font-size: 14px;
   }
   .lyric-trans {
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
   .lyrics-head {
     padding: 0 4px 8px;
