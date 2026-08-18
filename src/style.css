@@ -99,6 +99,7 @@ body {
 .topnav,
 .note-page,
 .home-page,
+.log-page,
 .album-page,
 .view,
 .about-page {
@@ -112,6 +113,7 @@ body {
   .topnav,
   .note-page,
   .home-page,
+  .log-page,
   .album-page,
   .view,
   .about-page {
@@ -270,4 +272,188 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== 日志时间线（HomeView / LogView 共用） ===== */
+.my-log {
+  width: 100%;
+  max-width: 860px;
+  margin: 44px auto 0;
+  padding: 0 20px;
+  text-align: left;
+}
+.my-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+.my-log-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.my-log-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.my-log-toggle {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  letter-spacing: .05em;
+  font-family: inherit;
+  transition: color .15s ease;
+}
+.my-log-toggle:hover {
+  color: var(--accent);
+}
+.my-log-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.my-log-item {
+  display: flex;
+  padding: 9px 0;
+  align-items: flex-start;
+}
+.my-log-time {
+  flex: 0 0 104px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+.my-log-dash {
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-tertiary);
+  user-select: none;
+  margin-left: -2px;
+  margin-right: 10px;
+}
+.my-log-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.my-log-md {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.my-log-md .md-render-inner {
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+.my-log-md .md-render-inner > :first-child {
+  margin-top: 0;
+}
+.my-log-md .md-render-inner > :last-child {
+  margin-bottom: 0;
+}
+.my-log-md .md-render-inner h1,
+.my-log-md .md-render-inner h2,
+.my-log-md .md-render-inner h3,
+.my-log-md .md-render-inner h4 {
+  color: var(--text);
+  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
+  margin: 1.3em 0 0.5em;
+}
+.my-log-md .md-render-inner h1 { font-size: 1.4em; }
+.my-log-md .md-render-inner h2 { font-size: 1.25em; }
+.my-log-md .md-render-inner h3 { font-size: 1.1em; }
+.my-log-md .md-render-inner :not(pre) > code {
+  background: var(--md-inline-code-bg);
+  color: var(--md-inline-code-fg);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+}
+.my-log-md .md-render-inner a {
+  color: var(--accent-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-border);
+}
+.my-log-md .md-render-inner a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.my-log-md .md-render-inner a[target="_blank"]::after {
+  content: "↗";
+  margin-left: 3px;
+  font-size: 0.78em;
+  color: var(--text-tertiary);
+}
+.my-log-md .md-render-inner blockquote {
+  margin: 0.8em 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary);
+}
+.my-log-md .md-render-inner pre.shiki,
+.my-log-md .md-render-inner .shiki {
+  background: var(--md-code-bg) !important;
+  border: 1px solid var(--md-code-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.my-log-loading,
+.my-log-empty {
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+@media (max-width: 640px) {
+  .my-log {
+    max-width: 100%;
+    padding: 0 4px 0 0;
+  }
+  .my-log-time { flex-basis: 80px; }
+  .my-log-dash { margin-right: 8px; }
+}
+@media (max-width: 440px) {
+  .my-log {
+    max-width: 100%;
+    padding: 0 2px 0 0;
+  }
+  .my-log-time { flex-basis: 72px; font-size: 11px; }
+  .my-log-dash { margin-right: 6px; }
+  .my-log-body { font-size: 13px; }
 }

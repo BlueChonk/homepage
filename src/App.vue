@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ConfigProvider, Menu, theme } from 'ant-design-vue'
-import AppHeader from './components/common/AppHeader.vue'
+import AppHeader from './components/AppHeader.vue'
 import HomeView from './views/HomeView.vue'
 import AboutView from './views/AboutView.vue'
 import AlbumView from './views/AlbumView.vue'
 import NoteView from './views/NoteView.vue'
-import MusicView from './components/music/MusicView.vue'
+import LogView from './views/LogView.vue'
+import MusicView from './components/MusicView.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
@@ -24,7 +25,7 @@ function onNavigate(key) {
 
 // 主页(home)与关于我(about)、相册(album)等整页内容，需要随导航区滚动
 const scrollable = computed(
-  () => ['home', 'about', 'album', 'notes'].includes(activeView.value)
+  () => ['home', 'about', 'album', 'notes', 'log'].includes(activeView.value)
 )
 
 // 应用启动即加载音乐清单，使后台播放（单例 Audio）随时可用，不受模块切换影响
@@ -39,11 +40,12 @@ onMounted(() => usePlayer().load())
 
       <!-- (2) 导航下方的内容区，随导航选择切换 -->
       <div class="app-body" :class="{ scrollable }">
-        <HomeView v-if="activeView === 'home'" />
+        <HomeView v-if="activeView === 'home'" @navigate="onNavigate" />
         <AboutView v-else-if="activeView === 'about'" />
         <AlbumView v-else-if="activeView === 'album'" />
         <MusicView v-else-if="activeView === 'music'" />
         <NoteView v-else-if="activeView === 'notes'" />
+        <LogView v-else-if="activeView === 'log'" />
       </div>
     </div>
   </ConfigProvider>
