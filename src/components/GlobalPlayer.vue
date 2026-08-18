@@ -144,34 +144,10 @@ onUnmounted(() => {
 
 <template>
   <div v-if="!loading && tracks.length" class="global-player" :class="{ collapsed, expanded: !collapsed }">
-    <!-- 折叠状态：紧凑底栏 -->
-    <div v-if="collapsed" class="gp-mini">
-      <!-- 顶部细进度条 -->
-      <div class="gp-mini-progress" @click="seek">
+    <!-- 折叠状态：仅显示底部进度条，点击展开 -->
+    <div v-if="collapsed" class="gp-mini" @click="collapsed = false" title="点击展开播放器">
+      <div class="gp-mini-progress">
         <div ref="miniFillEl" class="gp-mini-fill"></div>
-      </div>
-
-      <div class="gp-mini-body">
-        <img v-if="coverSrc" :src="coverSrc" alt="" class="gp-mini-cover" @click="goMusic" />
-        <span v-else class="gp-mini-cover gp-mini-cover-note" @click="goMusic">♪</span>
-
-        <div class="gp-mini-info" @click="goMusic">
-          <span class="gp-mini-title" :title="currentTrack?.title">{{ currentTrack?.title || currentTrack?.name }}</span>
-          <span v-if="currentTrack?.artist" class="gp-mini-artist">{{ currentTrack.artist }}</span>
-        </div>
-
-        <div class="gp-mini-ctrls">
-          <button class="gp-btn gp-btn-play" @click="toggle" :title="playing ? '暂停' : '播放'">
-            <svg v-if="playing" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
-            <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-          </button>
-          <button class="gp-btn" @click="next" title="下一首">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm9-12h2v12h-2z" /></svg>
-          </button>
-          <button class="gp-btn gp-btn-expand" @click="collapsed = false" title="展开">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14l5-5 5 5z" /></svg>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -289,118 +265,22 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* ===== 折叠状态 ===== */
+/* ===== 折叠状态：仅底部进度条 ===== */
 .gp-mini {
-  position: relative;
+  cursor: pointer;
 }
 .gp-mini-progress {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   height: 3px;
   background: var(--border-light);
-  cursor: pointer;
+  transition: height 0.2s ease;
+}
+.gp-mini:hover .gp-mini-progress {
+  height: 5px;
 }
 .gp-mini-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-strong));
   transition: width 0.15s linear;
-}
-.gp-mini-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  height: 56px;
-}
-.gp-mini-cover {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: var(--bg-soft);
-  cursor: pointer;
-}
-.gp-mini-cover-note {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: var(--text-tertiary);
-}
-.gp-mini-info {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  cursor: pointer;
-}
-.gp-mini-title {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gp-mini-artist {
-  font-size: 11.5px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gp-mini-ctrls {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.gp-btn {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.18s, color 0.18s, background 0.18s;
-}
-.gp-btn:hover {
-  border-color: var(--accent-border);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.gp-btn svg {
-  width: 15px;
-  height: 15px;
-}
-.gp-btn-play {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  border-color: transparent;
-  color: #fff;
-  width: 36px;
-  height: 36px;
-}
-.gp-btn-play:hover {
-  filter: brightness(1.08);
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-}
-.gp-btn-play svg {
-  width: 16px;
-  height: 16px;
-}
-.gp-btn-expand svg {
-  width: 18px;
-  height: 18px;
 }
 
 /* ===== 展开状态 ===== */
@@ -780,14 +660,6 @@ onUnmounted(() => {
 
 /* ===== 响应式 ===== */
 @media (max-width: 640px) {
-  .gp-mini-body {
-    padding: 8px 12px;
-    gap: 10px;
-  }
-  .gp-mini-cover {
-    width: 36px;
-    height: 36px;
-  }
   .gp-full {
     padding: 8px 12px 10px;
   }

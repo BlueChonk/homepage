@@ -187,8 +187,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 底部留出全局播放器空间 */
-  padding-bottom: 56px;
+  /* 底部留出全局播放器进度条空间 */
+  padding-bottom: 6px;
 }
 
 .stage-bg {
