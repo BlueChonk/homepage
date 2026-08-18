@@ -144,7 +144,7 @@ async function load() {
   initialized = true
   loading.value = true
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}music-manifest.jsonl`, { cache: 'no-cache' })
+    const res = await fetch(`${import.meta.env.BASE_URL}music.jsonl`, { cache: 'no-cache' })
     const text = await res.text()
     const parsed = text
       .split('\n')

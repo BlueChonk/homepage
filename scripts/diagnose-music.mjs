@@ -43,8 +43,8 @@ console.log('  音乐播放链路逐跳诊断（模拟浏览器行为）')
 console.log('═'.repeat(64))
 
 /* ─── 第 1 跳: 清单 ─── */
-console.log('\n[跳1] 加载 music-manifest.jsonl（前端 load() 做的事）')
-const mf = await request(`${DEV}/music-manifest.jsonl`)
+console.log('\n[跳1] 加载 music.jsonl（前端 load() 做的事）')
+const mf = await request(`${DEV}/music.jsonl`)
 const tracks = mf.body.toString().trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
 report(`HTTP ${mf.status}，解析出 ${tracks.length} 首`, mf.status === 200 && tracks.length > 0)
 const t = tracks[0]

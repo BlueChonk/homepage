@@ -14,7 +14,7 @@ const MD_RE = /\.md$/i
 const TARGETS = [
   { folder: 'album', kind: 'image' },
   { folder: 'note', kind: 'note' },
-  { folder: 'music', kind: 'audio', out: 'music-manifest.jsonl' },  // 手动维护，不自动生成
+  { folder: 'music', kind: 'audio', out: 'music.jsonl' },  // 手动维护，不自动生成
 ]
 
 // 文件名里可能带空格、中日文、括号，编码后再写入 url，避免部分环境下请求 404

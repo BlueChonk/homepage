@@ -58,9 +58,9 @@ try {
 }
 
 // 2. 检查 manifest
-console.log('\n[2] 音乐清单 (music-manifest.jsonl)')
+console.log('\n[2] 音乐清单 (music.jsonl)')
 try {
-  const r = await getText(`${DEV}/music-manifest.jsonl`)
+  const r = await getText(`${DEV}/music.jsonl`)
   const lines = r.data.trim().split('\n').filter(Boolean)
   const tracks = lines.map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
   allOk &= check(`清单加载 (${tracks.length} 首)`, tracks.length > 0, `${tracks.length} tracks`)

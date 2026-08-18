@@ -344,7 +344,7 @@ onUnmounted(() => {
       <div class="state empty">
         <div class="empty-emoji">🎵</div>
         <p>在线曲库暂无歌曲。</p>
-        <p class="hint">编辑 <code>public/music-manifest.jsonl</code> 添加歌曲（仅需标题和歌手），播放时自动从 QQ 音乐解析。</p>
+        <p class="hint">编辑 <code>public/music.jsonl</code> 添加歌曲（仅需标题和歌手），播放时自动从 QQ 音乐解析。</p>
       </div>
     </template>
   </section>
