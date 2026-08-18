@@ -5,7 +5,7 @@ import { useLyrics } from '../composables/useLyrics'
 
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
-  currentTrack, load, play, toggle, next, prev,
+  volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
   resolving, resolveError, onlineCover,
 } = usePlayer()
 
@@ -49,6 +49,101 @@ function toggleMobileView() {
   mobileView.value = mobileView.value === 'cover' ? 'lyrics' : 'cover'
 }
 
+/* ---- 播放列表 ---- */
+const listOpen = ref(false)
+
+/* ---- 音量 ---- */
+const volOpen = ref(false)
+const volDragging = ref(false)
+const volTrackRef = ref(null)
+
+const vClickOutside = {
+  mounted(el, binding) {
+    el._clickOutside = (e) => {
+      if (!el.contains(e.target)) binding.value()
+    }
+    document.addEventListener('click', el._clickOutside)
+  },
+  unmounted(el) {
+    document.removeEventListener('click', el._clickOutside)
+  },
+}
+
+function onVolSeek(e) {
+  const rect = e.currentTarget.getBoundingClientRect()
+  const ratio = 1 - (e.clientY - rect.top) / rect.height
+  setVolume(Math.max(0, Math.min(1, ratio)))
+}
+
+function onVolDragStart(e) {
+  volDragging.value = true
+  onVolSeek(e)
+  window.addEventListener('pointermove', onVolDragMove)
+  window.addEventListener('pointerup', onVolDragEnd)
+  e.preventDefault()
+}
+
+function onVolDragMove(e) {
+  if (!volDragging.value) return
+  const track = volTrackRef.value
+  if (!track) return
+  const rect = track.getBoundingClientRect()
+  const ratio = 1 - (e.clientY - rect.top) / rect.height
+  setVolume(Math.max(0, Math.min(1, ratio)))
+}
+
+function onVolDragEnd() {
+  volDragging.value = false
+  window.removeEventListener('pointermove', onVolDragMove)
+  window.removeEventListener('pointerup', onVolDragEnd)
+}
+
+/* ---- 拖动进度条 ---- */
+const scrubbing = ref(false)
+const scrubRatio = ref(null)
+const barRef = ref(null)
+const barFillEl = ref(null)
+const barKnobEl = ref(null)
+let unsubProgress = null
+
+function paintBar(percent) {
+  if (barFillEl.value) barFillEl.value.style.width = percent + '%'
+  if (barKnobEl.value) barKnobEl.value.style.left = percent + '%'
+}
+
+function ratioFromEvent(e) {
+  if (!barRef.value) return 0
+  const rect = barRef.value.getBoundingClientRect()
+  return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+}
+
+function onBarDown(e) {
+  e.preventDefault()
+  scrubbing.value = true
+  scrubRatio.value = ratioFromEvent(e)
+  paintBar(scrubRatio.value * 100)
+  barRef.value?.setPointerCapture?.(e.pointerId)
+}
+
+function onBarMove(e) {
+  if (!scrubbing.value) return
+  scrubRatio.value = ratioFromEvent(e)
+  paintBar(scrubRatio.value * 100)
+}
+
+function onBarUp(e) {
+  if (!scrubbing.value) return
+  scrubbing.value = false
+  scrubRatio.value = null
+  seek({ currentTarget: barRef.value, clientX: e.clientX })
+}
+
+const shownTime = computed(() => {
+  if (scrubbing.value && scrubRatio.value !== null) return scrubRatio.value * duration.value
+  return currentTime.value
+})
+
+/* ---- 歌词滚动 ---- */
 const lyricBoxRef = ref(null)
 let lyricScrollRaf = 0
 watch(activeIndex, () => {
@@ -67,6 +162,10 @@ watch(activeIndex, () => {
 
 onMounted(() => {
   load()
+  unsubProgress = onProgress((pct) => {
+    if (!scrubbing.value) paintBar(pct)
+  })
+  paintBar(progress.value)
   mobileMq = window.matchMedia('(max-width: 960px)')
   updateMobile(mobileMq)
   if (mobileMq.addEventListener) mobileMq.addEventListener('change', updateMobile)
@@ -74,6 +173,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  unsubProgress?.()
+  window.removeEventListener('pointermove', onVolDragMove)
+  window.removeEventListener('pointerup', onVolDragEnd)
   if (mobileMq) {
     if (mobileMq.removeEventListener) mobileMq.removeEventListener('change', updateMobile)
     else mobileMq.removeListener(updateMobile)
@@ -92,11 +194,49 @@ onUnmounted(() => {
 
     <template v-else-if="tracks.length">
       <div class="player-main">
-        <div class="player-hero" :class="{ 'mobile-toggle': isMobile, 'show-lyrics': isMobile && mobileView === 'lyrics' }">
+        <!-- 歌词列表面板（浮层） -->
+        <Transition name="drawer">
+          <div v-if="listOpen" class="list-panel" v-click-outside="() => listOpen = false">
+            <div class="list-head">
+              <span class="list-title">在线曲库</span>
+              <span class="list-count">{{ tracks.length }} 首</span>
+              <button class="list-close" @click="listOpen = false">✕</button>
+            </div>
+            <ul class="list-body">
+              <li
+                v-for="(t, i) in tracks"
+                :key="t.url || i"
+                :class="{ active: i === current }"
+                @click="play(i)"
+              >
+                <span class="list-idx">
+                  <span v-if="i === current && playing" class="eq"><i></i><i></i><i></i></span>
+                  <span v-else>{{ i + 1 }}</span>
+                </span>
+                <span class="list-meta">
+                  <span class="list-name">{{ t.title || t.name }}</span>
+                  <span v-if="t.artist" class="list-by">{{ t.artist }}</span>
+                </span>
+                <span class="list-dur">{{ formatTime(t.duration) }}</span>
+              </li>
+            </ul>
+          </div>
+        </Transition>
+
+        <!-- 主区域：封面 + 歌词 -->
+        <div
+          class="player-hero"
+          :class="{ 'mobile-toggle': isMobile, 'show-lyrics': isMobile && mobileView === 'lyrics' }"
+        >
+          <!-- 左侧：封面/碟片 -->
           <div class="hero-left" @click="toggleMobileView">
             <div class="disc" :class="{ spinning: playing }">
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
+            </div>
+            <div class="track-info">
+              <span class="track-title">{{ currentTrack?.title || currentTrack?.name }}</span>
+              <span v-if="currentTrack?.artist" class="track-artist">{{ currentTrack.artist }}</span>
             </div>
             <div v-if="resolving" class="resolving-hint">🔍 QQ 音乐解析中…</div>
             <div v-else-if="resolveError" class="resolve-error">⚠️ {{ resolveError }}</div>
@@ -105,6 +245,7 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- 右侧：歌词区 -->
           <div class="lyrics-zone">
             <div class="lyrics-head">
               <span v-if="isMobile && mobileView === 'lyrics'" class="lyrics-back" @click="toggleMobileView">‹ 封面</span>
@@ -142,6 +283,65 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+
+        <!-- 底部控制栏 -->
+        <div class="controls-bar">
+          <!-- 进度条 -->
+          <div class="seek-row">
+            <span class="time">{{ formatTime(shownTime) }}</span>
+            <div
+              ref="barRef"
+              class="seek-bar"
+              @pointerdown="onBarDown"
+              @pointermove="onBarMove"
+              @pointerup="onBarUp"
+              @pointercancel="scrubbing = false"
+            >
+              <div ref="barFillEl" class="seek-fill"></div>
+              <div ref="barKnobEl" class="seek-knob"></div>
+            </div>
+            <span class="time">{{ formatTime(duration) }}</span>
+          </div>
+
+          <!-- 控制按钮 -->
+          <div class="ctrls">
+            <div class="ctrls-left">
+              <div class="vol-wrap" v-click-outside="() => volOpen = false">
+                <button class="btn" @click="volOpen = !volOpen" :title="volume === 0 ? '取消静音' : '音量'">
+                  <svg v-if="volume === 0" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4L15.2 10.6 12.5 7.9 11 9.3l2.7 2.7L11 14.7l1.5 1.4 2.7-2.7 2.7 2.7 1.4-1.4z" /></svg>
+                  <svg v-else-if="volume < 0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12z" /></svg>
+                  <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12zm-2-8.2v2.1a6 6 0 010 12.2v2.1A8 8 0 0014 3.8z" /></svg>
+                </button>
+                <div v-if="volOpen" class="vol-pop" @pointerdown.stop>
+                  <div ref="volTrackRef" class="vol-track" @pointerdown.prevent="onVolDragStart">
+                    <div class="vol-fill" :style="{ height: volume * 100 + '%' }"></div>
+                    <div class="vol-knob" :style="{ bottom: 'calc(' + volume * 100 + '% - 6px)' }"></div>
+                  </div>
+                  <span class="vol-pct">{{ Math.round(volume * 100) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ctrls-center">
+              <button class="btn" @click="prev" title="上一首">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+              <button class="btn-play" @click="toggle" :title="playing ? '暂停' : '播放'">
+                <svg v-if="playing" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
+                <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              </button>
+              <button class="btn" @click="next" title="下一首">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm9-12h2v12h-2z" /></svg>
+              </button>
+            </div>
+
+            <div class="ctrls-right">
+              <button class="btn" :class="{ active: listOpen }" @click="listOpen = !listOpen" title="播放列表">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -164,8 +364,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 底部留出全局播放器进度条空间 */
-  padding-bottom: 6px;
 }
 
 .stage-bg {
@@ -193,20 +391,7 @@ html[data-theme="dark"] .stage-overlay {
   background: linear-gradient(180deg, rgba(13, 15, 20, 0.7), rgba(13, 15, 20, 0.86));
 }
 
-.resolving-hint {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.resolve-error {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--danger, #e5484d);
-}
-
+/* ===== 主区域 ===== */
 .player-main {
   position: relative;
   z-index: 2;
@@ -216,31 +401,33 @@ html[data-theme="dark"] .stage-overlay {
   max-width: 1320px;
   margin: 0 auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 44px 6px;
+  flex-direction: column;
+  padding: 10px 44px 0;
 }
+
 .player-hero {
-  position: relative;
-  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 72px;
   align-items: center;
-  width: 100%;
+  padding-bottom: 12px;
 }
+
+/* ===== 封面区 ===== */
 .hero-left {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   text-align: center;
   min-width: 0;
 }
 .disc {
   position: relative;
-  width: 320px;
-  height: 320px;
+  width: 280px;
+  height: 280px;
   border-radius: 50%;
   border: 2px solid var(--border);
   background:
@@ -256,8 +443,8 @@ html[data-theme="dark"] .stage-overlay {
 .disc::after {
   content: "";
   position: absolute;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: var(--surface);
   border: 2px solid var(--accent);
@@ -282,7 +469,30 @@ html[data-theme="dark"] .stage-overlay {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+.track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.track-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.track-artist {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.resolving-hint {
+  font-size: 13px;
+  color: var(--accent);
+}
+.resolve-error {
+  font-size: 13px;
+  color: var(--danger, #e5484d);
+}
 
+/* ===== 歌词区 ===== */
 .lyrics-zone {
   min-width: 0;
   align-self: stretch;
@@ -408,6 +618,334 @@ html[data-theme="dark"] .stage-overlay {
   opacity: 0.72;
 }
 
+/* ===== 底部控制栏 ===== */
+.controls-bar {
+  flex: 0 0 auto;
+  padding: 8px 0 12px;
+  border-top: 1px solid var(--border-light);
+}
+.seek-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.time {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: center;
+}
+.seek-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-light);
+  cursor: pointer;
+  touch-action: none;
+}
+.seek-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+}
+.seek-knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.seek-bar:hover .seek-knob,
+.seek-bar:active .seek-knob {
+  opacity: 1;
+}
+.ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ctrls-left,
+.ctrls-right {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ctrls-right {
+  justify-content: flex-end;
+}
+.ctrls-center {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+.btn:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+.btn.active {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.btn-play {
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  width: 48px;
+  height: 48px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px var(--accent-soft);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.btn-play:hover {
+  filter: brightness(1.08);
+  transform: scale(1.05);
+}
+.btn-play svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 音量弹出 */
+.vol-wrap {
+  position: relative;
+}
+.vol-pop {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  padding: 10px 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 90;
+}
+.vol-track {
+  position: relative;
+  width: 5px;
+  height: 80px;
+  border-radius: 999px;
+  background: var(--border-light);
+  cursor: pointer;
+}
+.vol-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+  border-radius: 999px;
+}
+.vol-knob {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+}
+.vol-pct {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* ===== 播放列表面板 ===== */
+.list-panel {
+  position: absolute;
+  top: 10px;
+  right: 44px;
+  width: min(380px, 80vw);
+  max-height: 60%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 85;
+}
+.list-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.list-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.list-count {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.list-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.list-close:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.list-body {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.list-body::-webkit-scrollbar {
+  width: 5px;
+}
+.list-body::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.list-body li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.list-body li:hover {
+  background: var(--surface-hover);
+}
+.list-body li.active {
+  background: var(--accent-soft);
+}
+.list-idx {
+  flex: 0 0 28px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.eq i {
+  width: 2.5px;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: eq-anim 0.9s ease-in-out infinite;
+}
+.eq i:nth-child(1) { height: 5px; animation-delay: 0s; }
+.eq i:nth-child(2) { height: 12px; animation-delay: 0.2s; }
+.eq i:nth-child(3) { height: 8px; animation-delay: 0.4s; }
+@keyframes eq-anim {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+.list-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.list-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-body li:not(.active) .list-name {
+  color: var(--text-secondary);
+}
+.list-by {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-dur {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateY(-12px);
+  opacity: 0;
+}
+
 .state {
   flex: 1 1 auto;
   display: flex;
@@ -435,18 +973,19 @@ html[data-theme="dark"] .stage-overlay {
   color: var(--text-secondary);
 }
 
+/* ===== 响应式：平板 ===== */
 @media (max-width: 960px) {
   .player-main {
-    padding: 8px 22px 4px;
+    padding: 8px 22px 0;
   }
   .player-hero {
     grid-template-columns: 1fr;
-    gap: 22px;
+    gap: 16px;
     justify-items: center;
   }
   .disc {
-    width: 190px;
-    height: 190px;
+    width: 200px;
+    height: 200px;
   }
   .lyrics-zone {
     width: 100%;
@@ -464,13 +1003,7 @@ html[data-theme="dark"] .stage-overlay {
   }
   .player-hero.mobile-toggle .hero-left {
     cursor: pointer;
-    transition: opacity 0.3s ease, transform 0.3s ease;
   }
-  .player-hero.mobile-toggle .lyrics-zone {
-    cursor: pointer;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-  /* 默认显示封面，隐藏歌词 */
   .player-hero.mobile-toggle:not(.show-lyrics) .lyrics-zone {
     display: none;
   }
@@ -487,7 +1020,7 @@ html[data-theme="dark"] .stage-overlay {
     height: clamp(280px, 50vh, 480px);
   }
   .mobile-toggle-hint {
-    margin-top: 10px;
+    margin-top: 6px;
     font-size: 12px;
     color: var(--text-tertiary);
     opacity: 0.7;
@@ -502,14 +1035,27 @@ html[data-theme="dark"] .stage-overlay {
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  .list-panel {
+    right: 22px;
+    width: min(360px, calc(100vw - 44px));
+    max-height: 55%;
+  }
 }
+
+/* ===== 响应式：手机 ===== */
 @media (max-width: 560px) {
   .player-main {
-    padding: 6px 12px 2px;
+    padding: 6px 12px 0;
   }
   .disc {
-    width: 150px;
-    height: 150px;
+    width: 170px;
+    height: 170px;
+  }
+  .track-title {
+    font-size: 15px;
+  }
+  .track-artist {
+    font-size: 12px;
   }
   .lyrics-inner {
     padding: 80px 6px;
@@ -520,15 +1066,56 @@ html[data-theme="dark"] .stage-overlay {
   .lyric-trans {
     font-size: 11.5px;
   }
+  .seek-row {
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .time {
+    font-size: 11px;
+    min-width: 32px;
+  }
+  .seek-bar {
+    height: 5px;
+  }
+  .ctrls {
+    gap: 8px;
+  }
+  .btn {
+    width: 36px;
+    height: 36px;
+  }
+  .btn svg {
+    width: 15px;
+    height: 15px;
+  }
+  .btn-play {
+    width: 44px;
+    height: 44px;
+  }
+  .btn-play svg {
+    width: 18px;
+    height: 18px;
+  }
+  .list-panel {
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: 50%;
+  }
 }
+
+/* ===== 响应式：小屏手机 ===== */
 @media (max-width: 380px) {
   .disc {
-    width: 120px;
-    height: 120px;
+    width: 140px;
+    height: 140px;
   }
   .disc::after {
     width: 20px;
     height: 20px;
+  }
+  .track-title {
+    font-size: 14px;
   }
   .lyric-original {
     font-size: 12.5px;
@@ -546,14 +1133,27 @@ html[data-theme="dark"] .stage-overlay {
   .lyrics-state {
     font-size: 10px;
   }
+  .btn {
+    width: 34px;
+    height: 34px;
+  }
+  .btn-play {
+    width: 40px;
+    height: 40px;
+  }
+  /* 小屏隐藏音量按钮 */
+  .vol-wrap {
+    display: none;
+  }
 }
+
 @media (max-height: 700px) {
   .disc {
-    width: 180px;
-    height: 180px;
+    width: 170px;
+    height: 170px;
   }
   .player-hero {
-    gap: 16px;
+    gap: 12px;
   }
   .lyrics-box,
   .lyrics-empty {
