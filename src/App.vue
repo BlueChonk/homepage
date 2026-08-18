@@ -7,7 +7,7 @@ import AboutView from './views/AboutView.vue'
 import AlbumView from './views/AlbumView.vue'
 import NoteView from './views/NoteView.vue'
 import LogView from './views/LogView.vue'
-import MusicView from './components/MusicView.vue'
+import MusicView from './views/MusicView.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
