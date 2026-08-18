@@ -1,10 +1,48 @@
 <script setup>
+import { ref, reactive, nextTick, watch } from 'vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { useLog } from '../composables/useLog'
 
 /* 全部日志，不限制条数 */
 const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog()
+
+/* ===== 折叠/展开逻辑 ===== */
+const COLLAPSE_THRESHOLD = 150 // 超过此高度(px)自动折叠
+// collapsed[i]: null=未检测, true=已折叠, false=已展开
+const collapsed = reactive({})
+// 记录是否已检测过，避免重复
+const checked = ref(new Set())
+
+/* 检测每条日志高度，超阈值则标记为可折叠 */
+function checkCollapse() {
+  nextTick(() => {
+    visibleLogs.value.forEach((_, i) => {
+      if (checked.value.has(i)) return
+      const el = document.querySelector(`[data-log-idx="${i}"] .my-log-md`)
+      if (el) {
+        checked.value.add(i)
+        collapsed[i] = el.scrollHeight > COLLAPSE_THRESHOLD
+      }
+    })
+  })
+}
+
+function isCollapsed(i) {
+  return collapsed[i] === true
+}
+
+function toggleLog(i) {
+  collapsed[i] = !collapsed[i]
+}
+
+/* 渲染完成后检测高度 */
+function handleRendered(e) {
+  onLogRendered(e)
+  checkCollapse()
+}
+
+watch(() => myLogs.value.length, () => checkCollapse())
 </script>
 
 <template>
@@ -17,11 +55,28 @@ const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog()
         </h2>
       </div>
       <ul class="my-log-list">
-        <li v-for="(log, i) in visibleLogs" :key="i" class="my-log-item">
+        <li
+          v-for="(log, i) in visibleLogs"
+          :key="i"
+          class="my-log-item"
+          :data-log-idx="i"
+        >
           <span class="my-log-time">{{ log.date }}</span>
           <span class="my-log-dash" aria-hidden="true">──</span>
           <div class="my-log-body">
-            <MarkdownPreview class="my-log-md" :source="log.text" variant="log" @md-rendered="onLogRendered" />
+            <div
+              class="my-log-content"
+              :class="{ collapsed: isCollapsed(i) }"
+            >
+              <MarkdownPreview class="my-log-md" :source="log.text" variant="log" @md-rendered="handleRendered" />
+            </div>
+            <button
+              v-if="collapsed[i] !== undefined && collapsed[i] !== null"
+              class="my-log-expand"
+              @click="toggleLog(i)"
+            >
+              {{ isCollapsed(i) ? '展开 ↓' : '收起 ↑' }}
+            </button>
           </div>
         </li>
         <li v-if="!logLoading && myLogs.length === 0" class="my-log-empty">
@@ -42,6 +97,39 @@ const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog()
   flex-direction: column;
   width: 100%;
   padding-top: 40px;
+}
+
+/* 日志内容折叠容器 */
+.my-log-content {
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+  max-height: 5000px;
+}
+.my-log-content.collapsed {
+  max-height: 150px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+}
+
+/* 展开/收起按钮 */
+.my-log-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.my-log-expand:hover {
+  background: var(--accent-border);
 }
 
 @media (max-width: 768px) {
