@@ -263,6 +263,8 @@ onUnmounted(() => {
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  /* iOS 底部安全区域 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ===== 折叠状态：仅底部进度条 ===== */
@@ -659,43 +661,128 @@ onUnmounted(() => {
 }
 
 /* ===== 响应式 ===== */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .gp-full {
-    padding: 8px 12px 10px;
+    padding: 8px 16px 10px;
   }
-  .gp-info {
-    max-width: 35%;
+  .gp-seek-row {
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .gp-time {
+    font-size: 11px;
+    min-width: 32px;
+  }
+  .gp-bar {
+    height: 5px;
   }
   .gp-ctrls {
-    gap: 10px;
+    gap: 12px;
+  }
+  .gp-info {
+    max-width: 40%;
+  }
+  .gp-cover {
+    width: 40px;
+    height: 40px;
+  }
+  .gp-title {
+    font-size: 13px;
   }
   .gp-ctrls-center {
     gap: 8px;
   }
   .gp-ctrl {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
   }
   .gp-play {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
   }
   .gp-ctrls-right {
-    gap: 6px;
+    gap: 8px;
+  }
+  .gp-list-panel {
+    right: 12px;
+    width: min(360px, calc(100vw - 24px));
+    max-height: 50vh;
   }
 }
-@media (max-width: 460px) {
-  .gp-mini-artist {
-    display: none;
+@media (max-width: 480px) {
+  .gp-full {
+    padding: 6px 10px 8px;
+  }
+  .gp-seek-row {
+    gap: 6px;
+  }
+  .gp-time {
+    font-size: 10px;
+    min-width: 28px;
   }
   .gp-artist {
     display: none;
   }
   .gp-info {
-    max-width: 40%;
+    max-width: 35%;
+  }
+  .gp-cover {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+  }
+  .gp-title {
+    font-size: 12px;
+  }
+  .gp-ctrls {
+    gap: 8px;
+  }
+  .gp-ctrls-center {
+    gap: 6px;
+  }
+  .gp-ctrl {
+    width: 34px;
+    height: 34px;
+  }
+  .gp-ctrl svg {
+    width: 14px;
+    height: 14px;
+  }
+  .gp-play {
+    width: 42px;
+    height: 42px;
+  }
+  .gp-play svg {
+    width: 18px;
+    height: 18px;
+  }
+  .gp-ctrls-right {
+    gap: 4px;
   }
   .gp-vol {
     display: none;
+  }
+  .gp-list-panel {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-height: 45vh;
+  }
+}
+@media (max-width: 360px) {
+  .gp-resolving {
+    display: none;
+  }
+  .gp-ctrls-center {
+    gap: 4px;
+  }
+  .gp-ctrl {
+    width: 32px;
+    height: 32px;
+  }
+  .gp-play {
+    width: 38px;
+    height: 38px;
   }
 }
 </style>

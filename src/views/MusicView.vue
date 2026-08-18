@@ -219,7 +219,7 @@ html[data-theme="dark"] .stage-overlay {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 72px;
   align-items: center;
   width: 100%;
@@ -468,6 +468,32 @@ html[data-theme="dark"] .stage-overlay {
   }
   .lyric-trans {
     font-size: 11.5px;
+  }
+}
+@media (max-width: 380px) {
+  .disc {
+    width: 120px;
+    height: 120px;
+  }
+  .disc::after {
+    width: 20px;
+    height: 20px;
+  }
+  .lyric-original {
+    font-size: 12.5px;
+  }
+  .lyric-trans {
+    font-size: 10.5px;
+  }
+  .lyrics-head {
+    padding: 0 4px 8px;
+  }
+  .now-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+  .lyrics-state {
+    font-size: 10px;
   }
 }
 @media (max-height: 700px) {
