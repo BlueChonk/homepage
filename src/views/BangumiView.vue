@@ -351,7 +351,7 @@ function formatDate(date) {
 /* ===== 卡片网格：最少2列，根据设备宽度自动缩放 ===== */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(50%, 160px), 1fr));
   gap: 18px;
 }
 

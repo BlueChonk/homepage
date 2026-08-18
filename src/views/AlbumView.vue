@@ -144,7 +144,7 @@ onUnmounted(() => {
 /* 网格布局：最少2列，根据设备宽度自动缩放 */
 .album-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(50%, 140px), 1fr));
   gap: 16px;
   width: 100%;
   margin: 0 auto;
