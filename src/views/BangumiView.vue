@@ -348,10 +348,11 @@ function formatDate(date) {
   color: var(--text);
 }
 
-/* ===== 卡片网格：最少2列，根据设备宽度自动缩放 ===== */
+/* ===== 卡片网格：最少2列，根据设备宽度自动缩放 =====
+   min(50% - 9px) = 补偿 gap(18px) 的一半，确保两列总宽+gap ≤ 容器宽度 */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(50%, 160px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 9px), 160px), 1fr));
   gap: 18px;
 }
 
@@ -603,7 +604,8 @@ function formatDate(date) {
   .bgm-title { font-size: 20px; }
 }
 @media (max-width: 600px) {
-  .bgm-grid { gap: 12px; }
+  /* gap 改为 12px，同步调整 calc 补偿值（半个 gap = 6px） */
+  .bgm-grid { gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 6px), 160px), 1fr)); }
   .bgm-tabs { gap: 6px; }
   .bgm-tab { padding: 6px 14px; font-size: 13px; }
   .bgm-detail-panel { flex-direction: column; }

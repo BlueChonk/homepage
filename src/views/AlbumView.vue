@@ -141,10 +141,11 @@ onUnmounted(() => {
   color: var(--text);
 }
 
-/* 网格布局：最少2列，根据设备宽度自动缩放 */
+/* 网格布局：最少2列，根据设备宽度自动缩放
+   min(50% - 8px) = 补偿 gap(16px) 的一半，确保两列总宽+gap ≤ 容器宽度 */
 .album-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(50%, 140px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 8px), 140px), 1fr));
   gap: 16px;
   width: 100%;
   margin: 0 auto;
