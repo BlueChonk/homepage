@@ -26,6 +26,21 @@ const resolveError = ref('')
 const onlineCover = ref('')
 const onlineLrc = ref('')
 
+/* 播放错误提示（VIP 歌曲等无法播放的情况） */
+const playError = ref('')
+let playErrorTimer = null
+
+function setPlayError(msg) {
+  playError.value = msg
+  if (playErrorTimer) clearTimeout(playErrorTimer)
+  playErrorTimer = setTimeout(() => { playError.value = '' }, 4000)
+}
+
+function clearPlayError() {
+  playError.value = ''
+  if (playErrorTimer) clearTimeout(playErrorTimer)
+}
+
 // URL 缓存: { trackKey: { audioUrl, cover, lrc, expiresAt } }
 const resolveCache = new Map()
 
@@ -142,7 +157,11 @@ function bindAudio() {
       audio.src = fresh.audioUrl
       activeSrc = fresh.audioUrl
       resolveError.value = ''
-      audio.play().catch(() => {})
+      audio.play().catch(() => {
+        setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
+      })
+    } else {
+      setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
     }
   })
 }
@@ -205,7 +224,9 @@ async function play(i) {
     const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
     audio.src = s
     activeSrc = s
-    audio.play().catch(() => {})
+    audio.play().catch(() => {
+      setPlayError(`"${track.title || track.name}" 播放失败，请稍后重试`)
+    })
     return
   }
 
@@ -214,13 +235,19 @@ async function play(i) {
   if (onlineSrc) {
     audio.src = onlineSrc
     activeSrc = onlineSrc
-    audio.play().catch(() => {})
+    audio.play().catch(() => {
+      setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
+    })
   } else if (track.url) {
     const base = import.meta.env.BASE_URL || '/'
     const s = track.url.startsWith('/') ? base.replace(/\/$/, '') + track.url : track.url
     audio.src = s
     activeSrc = s
-    audio.play().catch(() => {})
+    audio.play().catch(() => {
+      setPlayError(`"${track.title || track.name}" 播放失败，请稍后重试`)
+    })
+  } else {
+    setPlayError(`"${track.title || track.name}" 可能是 VIP 歌曲，暂不支持播放`)
   }
 }
 
@@ -337,6 +364,8 @@ export function usePlayer() {
     resolveError,
     onlineCover,
     onlineLrc,
+    playError,
+    clearPlayError,
     load,
     play,
     toggle,
