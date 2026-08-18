@@ -107,6 +107,38 @@ body {
   background-attachment: fixed;
 }
 
+/* ===== 响应式断点变量（统一管理，各组件引用） ===== */
+:root {
+  --bp-sm: 480px;   /* 小手机 */
+  --bp-md: 768px;   /* 大手机 / 小平板 */
+  --bp-lg: 1024px;  /* 平板 / 小桌面 */
+  --bp-xl: 1280px;  /* 桌面 */
+}
+
+/* ===== 触屏设备：移除 hover 依赖 ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* 触屏设备上 hover 效果改为 active 触发 */
+  .gp-ctrl:hover,
+  .gp-play:hover,
+  .album-card:hover,
+  .record-card:hover,
+  .my-note-card:hover,
+  .theme-btn:hover,
+  .back-btn:hover,
+  .back-top-btn:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+}
+
+/* ===== iOS 安全区域工具类 ===== */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 @media (max-width: 768px) {
   /* 移动端固定背景会导致 iOS Safari 滚动卡顿，改为随内容滚动 */
   .app-body.scrollable,
