@@ -89,6 +89,8 @@ function onBarUp(e) {
 }
 
 /* ---- 音量 ---- */
+const volTrackRef = ref(null)
+
 function onVolSeek(e) {
   const rect = e.currentTarget.getBoundingClientRect()
   const ratio = 1 - (e.clientY - rect.top) / rect.height
@@ -105,7 +107,7 @@ function onVolDragStart(e) {
 
 function onVolDragMove(e) {
   if (!volDragging.value) return
-  const track = document.querySelector('.gp-vol-track')
+  const track = volTrackRef.value
   if (!track) return
   const rect = track.getBoundingClientRect()
   const ratio = 1 - (e.clientY - rect.top) / rect.height
@@ -201,7 +203,7 @@ onUnmounted(() => {
               <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12zm-2-8.2v2.1a6 6 0 010 12.2v2.1A8 8 0 0014 3.8z" /></svg>
             </button>
             <div v-if="volOpen" class="gp-vol-pop" @pointerdown.stop>
-              <div class="gp-vol-track" @pointerdown.prevent="onVolDragStart">
+              <div ref="volTrackRef" class="gp-vol-track" @pointerdown.prevent="onVolDragStart">
                 <div class="gp-vol-fill" :style="{ height: volume * 100 + '%' }"></div>
                 <div class="gp-vol-knob" :style="{ bottom: 'calc(' + volume * 100 + '% - 6px)' }"></div>
               </div>
