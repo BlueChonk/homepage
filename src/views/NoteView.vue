@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import MarkdownPreview from '../components/common/MarkdownPreview.vue'
-import AppFooter from '../components/common/AppFooter.vue'
+import MarkdownPreview from '../components/MarkdownPreview.vue'
+import AppFooter from '../components/AppFooter.vue'
 
 /* ===== 状态 ===== */
 const records = ref([])

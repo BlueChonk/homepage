@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, computed, watch, nextTick } from 'vue'
-import { loadAMap } from '../../utils/amap'
-import { useTheme } from '../../composables/useTheme'
+import { loadAMap } from '../utils/amap'
+import { useTheme } from '../composables/useTheme'
 
 const { resolved } = useTheme()
 

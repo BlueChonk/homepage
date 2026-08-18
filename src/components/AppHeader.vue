@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { Menu } from 'ant-design-vue'
-import { usePlayer } from '../../composables/usePlayer'
-import { useTheme } from '../../composables/useTheme'
+import { usePlayer } from '../composables/usePlayer'
+import { useTheme } from '../composables/useTheme'
 
 const props = defineProps({
   active: { type: String, default: 'home' },
@@ -10,6 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['navigate'])
 
 const items = [
+  { key: 'log', label: 'Log' },
   { key: 'notes', label: 'Note' },
   { key: 'album', label: 'Album' },
   { key: 'music', label: 'Music' },

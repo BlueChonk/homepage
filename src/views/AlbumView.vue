@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Image } from 'ant-design-vue'
-import AppFooter from '../components/common/AppFooter.vue'
+import AppFooter from '../components/AppFooter.vue'
 
 const all = ref([])
 const loading = ref(true)
