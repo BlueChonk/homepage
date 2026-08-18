@@ -58,6 +58,18 @@ function ensureHomeMarker() {
   homeMarker.setMap(map)
 }
 
+function setInteraction(enabled) {
+  if (!map) return
+  map.setStatus({
+    dragEnable: enabled,
+    zoomEnable: enabled,
+    rotateEnable: enabled,
+    pitchEnable: enabled,
+    doubleClickZoom: enabled,
+    keyboardEnable: enabled,
+  })
+}
+
 function addNavControl() {
   if (navControl || !map) return
   navControl = new window.AMap.Control.Zoom({ position: 'RB' })
@@ -76,6 +88,7 @@ async function toggleExpand() {
   await nextTick()
   if (!map) return
   if (expanded.value) {
+    setInteraction(true)
     map.setPitch(45)
     map.setRotation(-15)
     map.setZoom(14)
@@ -86,6 +99,7 @@ async function toggleExpand() {
     map.setZoom(6)
     map.setCenter([HOME.lng, HOME.lat])
     removeNavControl()
+    setInteraction(false)
   }
 }
 
@@ -108,6 +122,7 @@ onMounted(async () => {
     map.on('complete', () => {
       ensureHomeMarker()
       applyMapStyle()
+      setInteraction(false)
       loading.value = false
       ready.value = true
     })
@@ -121,6 +136,7 @@ onMounted(async () => {
         loading.value = false
         ready.value = true
         ensureHomeMarker()
+        setInteraction(false)
       }
     }, 6000)
   } catch (e) {
