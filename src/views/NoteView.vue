@@ -218,7 +218,7 @@ function scrollListToTop() {
 
 onMounted(async () => {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}records-manifest.jsonl`, { cache: 'no-cache' })
+    const res = await fetch(`${import.meta.env.BASE_URL}note.jsonl`, { cache: 'no-cache' })
     if (!res.ok) throw new Error(`清单加载失败 (${res.status})`)
     records.value = parseJsonl(await res.text())
   } catch (e) {
@@ -249,9 +249,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="records">
-    <!-- ===== 记录列表视图 ===== -->
-    <div v-show="isListView" class="records-list-view">
+  <div class="note-page">
+    <!-- ===== 笔记列表视图 ===== -->
+    <div v-show="isListView" class="note-list-view">
       <div v-if="loading" class="list-loading">
         <span class="loader-dot" /><span>加载中…</span>
       </div>
@@ -274,7 +274,7 @@ onUnmounted(() => {
               <span v-if="record.wordCount" class="meta-words">{{ record.wordCount.toLocaleString('en-US') }} 字</span>
             </div>
             <div v-if="record.excerpt" class="card-excerpt">
-              <MarkdownPreview :source="record.excerpt" variant="records-excerpt" class="card-excerpt-md" />
+              <MarkdownPreview :source="record.excerpt" variant="note-excerpt" class="card-excerpt-md" />
             </div>
             <span class="card-chevron" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -302,8 +302,8 @@ onUnmounted(() => {
       </template>
     </div>
 
-    <!-- ===== 记录详情视图 ===== -->
-    <section v-if="activeRecord && !isListView" ref="detailRef" class="records-detail">
+    <!-- ===== 笔记详情视图 ===== -->
+    <section v-if="activeRecord && !isListView" ref="detailRef" class="note-detail">
       <div class="detail-topbar">
         <button class="back-btn" @click="backToList">&larr; 返回列表</button>
         <span class="detail-title">{{ activeRecord.title }}</span>
@@ -318,7 +318,7 @@ onUnmounted(() => {
           <MarkdownPreview
             v-else
             :source="content"
-            variant="records"
+            variant="note"
             class="md-body"
             @md-rendered="onMdRendered"
           />
@@ -383,7 +383,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* ===== 容器 ===== */
-.records {
+.note-page {
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -391,7 +391,7 @@ onUnmounted(() => {
 }
 
 /* ===== 列表视图 ===== */
-.records-list-view {
+.note-list-view {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -624,7 +624,7 @@ onUnmounted(() => {
 }
 
 /* ===== 详情视图 ===== */
-.records-detail {
+.note-detail {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -632,7 +632,7 @@ onUnmounted(() => {
   flex-direction: column;
 }
 .detail-topbar {
-  max-width: calc(var(--record-max) + 240px + 40px);
+  max-width: calc(var(--note-max) + 240px + 40px);
   margin: 0 auto;
   width: 100%;
   padding: 20px 24px 0;
@@ -672,7 +672,7 @@ onUnmounted(() => {
 
 .detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, var(--record-max)) 240px;
+  grid-template-columns: minmax(0, var(--note-max)) 240px;
   gap: 36px;
   align-items: start;
   justify-content: center;
@@ -682,7 +682,7 @@ onUnmounted(() => {
 
 .doc-main {
   position: relative;
-  max-width: var(--record-max);
+  max-width: var(--note-max);
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1277,7 +1277,7 @@ html[data-theme="dark"] .md-body :deep(.md-render-inner pre.shiki span) {
 }
 
 @media (max-width: 720px) {
-  .records-list-view { padding: 20px 16px 40px; }
+  .note-list-view { padding: 20px 16px 40px; }
   .record-card { padding: 18px 18px 16px; }
   .card-title { font-size: 15px; }
   .pagination { gap: 4px; }
