@@ -5,15 +5,91 @@ description: "Homepage personal site project conventions and structure guide. In
 
 # Homepage 项目开发规范
 
-## 技术栈
+## 技术选型
 
-- **框架**: Vue 3 (Composition API, `<script setup>`)
-- **构建**: Vite 6 (`base: './'`)
-- **UI 库**: Ant Design Vue 4（仅用 ConfigProvider + Menu）
-- **Markdown**: @shikijs/markdown-it + shiki（代码高亮）
-- **地图**: maplibre-gl（3D 地球，optimizeDeps 需 exclude）
-- **音乐**: MetingJS API（QQ音乐在线播放，非本地文件）
-- **部署**: EdgeOne（云端构建，环境变量注入）
+### 整体架构
+
+个人主页项目，纯前端 SPA（单页应用），无后端服务器。所有数据通过 Vite 构建期插件从本地文件扫描生成 JSONL/MD 清单，运行时前端 fetch 加载。音乐播放通过第三方公共 API 实时解析，不依赖本地音频文件。
+
+### 前端框架与构建
+
+| 选型 | 版本 | 选型理由 |
+|------|------|----------|
+| **Vue 3** | ^3.5.13 | Composition API + `<script setup>` 语法，轻量、响应式天然适合内容驱动的个人站 |
+| **Vite 6** | ^6.0.5 | 极快的 dev/build，原生 ESM，插件机制用于构建期自动生成数据清单；`base: './'` 适配子路径部署 |
+| **@vitejs/plugin-vue** | ^5.2.1 | Vue SFC 编译，官方标配 |
+
+不使用 vue-router：页面少（6 个视图），用 `App.vue` 中 `activeView` ref + `v-if/v-else-if` 手动切换即可，避免路由库的额外体积和 hash/history 模式配置。
+
+### UI 与样式
+
+| 选型 | 版本 | 选型理由 |
+|------|------|----------|
+| **Ant Design Vue 4** | ^4.2.6 | 仅使用 `ConfigProvider`（主题注入）+ `Menu`（导航菜单），不引入表单/表格等重组件，按需加载控制体积 |
+| **@ant-design/icons-vue** | ^7.0.1 | 导航栏图标 |
+| **原生 CSS** | - | 不用 Tailwind/UnoCSS，全局 CSS 变量（`:root` + `html[data-theme="dark"]`）管理主题色，组件内 `<style scoped>` + `:deep()` 穿透 |
+
+### 主题系统
+
+- `useTheme.js`：单例模式，三态切换（light / dark / system），`localStorage` 持久化
+- `index.html` 内联首帧脚本：在 Vue 挂载前读取 `localStorage` 设置 `data-theme`，避免暗色用户看到白色闪烁（FOUC）
+- Ant Design Vue 通过 `ConfigProvider` 的 `algorithm`（`darkAlgorithm` / `defaultAlgorithm`）同步主题
+- Shiki 代码高亮双主题（`github-dark` / `github-light`），CSS `color-scheme` 自动切换
+
+### Markdown 渲染
+
+| 选型 | 版本 | 选型理由 |
+|------|------|----------|
+| **markdown-it** | ^15.0.0 | 流式解析，插件生态丰富，比 marked 更灵活 |
+| **@shikijs/markdown-it** | ^4.4.3 | Shiki 集成 markdown-it 的官方桥接，每行渲染为独立 `.line` 节点，避免行号错位 |
+| **shiki** | ^4.4.3 | VS Code 同款 TextMate 语法高亮，双主题输出，按需加载 18 种常用语言控制体积 |
+| **markdown-it-anchor** | ^9.2.1 | 标题锚点生成，支持中文 slug，重复标题自动追加序号 |
+
+`useShiki.js` 单例缓存 highlighter，`MarkdownPreview.vue` 封装渲染逻辑，通过 `variant` prop 区分笔记/日志/摘要等场景。
+
+### 地图
+
+| 选型 | 版本 | 选型理由 |
+|------|------|----------|
+| **高德地图 JS API** | - | 通过 `utils/amap.js` 动态加载，国内访问稳定，支持卫星图层和自定义样式 |
+| **maplibre-gl** | ^6.3.0 | 开源 3D 地球渲染（WebGL），展示居住地位置；`optimizeDeps.exclude` 避免预打包破坏 worker |
+
+高德 Key 通过 `vite.config.js` 的 `define` 在构建期烘焙进产物（`__AMAP_API_KEY__`），浏览器运行时无法直接读服务端环境变量。`HomeMap.vue` 同时使用高德（2D 定位标记）和 maplibre-gl（3D 地球）。
+
+### 音乐播放
+
+| 选型 | 方式 | 选型理由 |
+|------|------|----------|
+| **MetingJS 公共 API** | `https://api.i-meto.com/meting/api` | 免费公共接口，根据歌名+歌手搜索 QQ 音乐，返回真实播放 URL、封面、歌词 |
+| **原生 Audio API** | `new Audio()` 单例 | 不依赖 Howler.js 等封装，单例 Audio 元素全生命周期复用，切换视图不中断播放 |
+
+`usePlayer.js` 核心：歌曲清单来自 `music.jsonl`（构建期由 Python 脚本从 QQ 音乐歌单拉取），播放时实时调 MetingJS API 解析音频 URL（有 30 分钟缓存 + 失效自动重试）。歌词同步由 `useLyrics.js` 处理。
+
+### 数据生成（构建期）
+
+| 脚本/插件 | 语言 | 选型理由 |
+|-----------|------|----------|
+| `parse-qq-playlist.py` | Python 3 标准库 | QQ 音乐 API 返回 JSONP/JSON，Python 标准库 `urllib` 即可处理，无需第三方依赖 |
+| `gen-feed.mjs` | Node.js ESM | 日志合并逻辑简单，用 Node 原生 `fs` 即可，与 Vite 插件同进程调用 |
+| `md-meta.mjs` | Node.js ESM | Markdown 元数据提取（标题/日期/摘要/分类/字数），正则解析，无需 remark/front-matter 库 |
+| `manifestPlugin()` | Vite 插件 | 通用文件扫描器，参数化配置 dir/outFile/urlBase/test/mapItem，复用于相册和笔记 |
+
+数据格式选用 **JSONL**（JSON Lines，每行一个独立 JSON 对象）而非 JSON 数组：流式友好，前端 `split('\n').map(JSON.parse)` 即可解析，文件 append 不需重写整个数组。
+
+### 部署
+
+- **EdgeOne**（腾讯云边缘计算）：云端构建时注入 `AMAP_API_KEY` 环境变量
+- `base: './'`：相对路径，适配子路径部署
+- `emptyOutDir: false`：跳过 Vite 清空 dist 目录，避免批量删除保护拦截
+- 静态资源全部本地化（favicon、图标、音效），不依赖外链 CDN
+
+### 依赖体积控制策略
+
+- Ant Design Vue 按需引入（仅 ConfigProvider + Menu）
+- Shiki 按需加载语言（18 种常用语言 + 别名映射）
+- maplibre-gl `optimizeDeps.exclude` 避免 worker 预打包问题
+- 不引入 vue-router、pinia、axios 等非必需库
+- 构建产物 chunk 超 500KB 警告可忽略（主要是 maplibre-gl）
 
 ## 目录结构
 
