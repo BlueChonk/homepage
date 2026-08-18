@@ -27,9 +27,6 @@ const coverStyle = computed(() =>
   coverSrc.value ? { backgroundImage: `url("${coverSrc.value}")` } : {}
 )
 
-const durations = ref({})
-const durationProbes = []
-
 function formatTime(sec) {
   if (!isFinite(sec) || sec <= 0) return '--:--'
   const m = Math.floor(sec / 60)
@@ -37,27 +34,26 @@ function formatTime(sec) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function probeDurations() {
-  tracks.value.forEach((t, i) => {
-    if (!t.url) return
-    if (durations.value[t.url] || durationProbes[i]) return
-    const a = new Audio()
-    durationProbes[i] = a
-    a.preload = 'metadata'
-    const base = import.meta.env.BASE_URL || '/'
-    const src = t.url.startsWith('/') ? base.replace(/\/$/, '') + t.url : t.url
-    a.addEventListener('loadedmetadata', () => {
-      if (a.duration && isFinite(a.duration)) {
-        durations.value = { ...durations.value, [t.url]: a.duration }
-      }
-    })
-    a.src = src
-  })
+/* ---- 移动端封面/歌词切换 ---- */
+const mobileView = ref('cover') // 'cover' | 'lyrics'
+const isMobile = ref(false)
+let mobileMq = null
+
+function updateMobile(e) {
+  isMobile.value = e.matches
+  if (!e.matches) mobileView.value = 'cover'
+}
+
+function toggleMobileView() {
+  if (!isMobile.value) return
+  mobileView.value = mobileView.value === 'cover' ? 'lyrics' : 'cover'
 }
 
 const lyricBoxRef = ref(null)
+let lyricScrollRaf = 0
 watch(activeIndex, () => {
-  requestAnimationFrame(() => {
+  if (lyricScrollRaf) cancelAnimationFrame(lyricScrollRaf)
+  lyricScrollRaf = requestAnimationFrame(() => {
     const box = lyricBoxRef.value
     if (!box) return
     const el = box.querySelectorAll('.lyric-line')[activeIndex.value]
@@ -71,12 +67,17 @@ watch(activeIndex, () => {
 
 onMounted(() => {
   load()
+  mobileMq = window.matchMedia('(max-width: 960px)')
+  updateMobile(mobileMq)
+  if (mobileMq.addEventListener) mobileMq.addEventListener('change', updateMobile)
+  else mobileMq.addListener(updateMobile)
 })
 
-watch(tracks, () => probeDurations(), { immediate: true })
-
 onUnmounted(() => {
-  durationProbes.forEach((a) => a && (a.src = ''))
+  if (mobileMq) {
+    if (mobileMq.removeEventListener) mobileMq.removeEventListener('change', updateMobile)
+    else mobileMq.removeListener(updateMobile)
+  }
 })
 </script>
 
@@ -91,18 +92,22 @@ onUnmounted(() => {
 
     <template v-else-if="tracks.length">
       <div class="player-main">
-        <div class="player-hero">
-          <div class="hero-left">
+        <div class="player-hero" :class="{ 'mobile-toggle': isMobile, 'show-lyrics': isMobile && mobileView === 'lyrics' }">
+          <div class="hero-left" @click="toggleMobileView">
             <div class="disc" :class="{ spinning: playing }">
               <img v-if="coverSrc" :src="coverSrc" alt="" class="disc-cover" />
               <span v-else class="disc-note">♪</span>
             </div>
             <div v-if="resolving" class="resolving-hint">🔍 QQ 音乐解析中…</div>
             <div v-else-if="resolveError" class="resolve-error">⚠️ {{ resolveError }}</div>
+            <div v-if="isMobile && lyricAvailable" class="mobile-toggle-hint">
+              {{ mobileView === 'cover' ? '点击封面查看歌词' : '点击返回封面' }}
+            </div>
           </div>
 
           <div class="lyrics-zone">
             <div class="lyrics-head">
+              <span v-if="isMobile && mobileView === 'lyrics'" class="lyrics-back" @click="toggleMobileView">‹ 封面</span>
               <span class="now-label">
                 <span class="now-dot" :class="{ on: playing }"></span>
                 {{ playing ? 'NOW PLAYING' : 'PAUSED' }}
@@ -450,6 +455,52 @@ html[data-theme="dark"] .stage-overlay {
   .lyrics-box,
   .lyrics-empty {
     height: clamp(180px, 36vh, 340px);
+  }
+
+  /* 移动端封面/歌词切换模式 */
+  .player-hero.mobile-toggle {
+    position: relative;
+    gap: 0;
+  }
+  .player-hero.mobile-toggle .hero-left {
+    cursor: pointer;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .player-hero.mobile-toggle .lyrics-zone {
+    cursor: pointer;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  /* 默认显示封面，隐藏歌词 */
+  .player-hero.mobile-toggle:not(.show-lyrics) .lyrics-zone {
+    display: none;
+  }
+  .player-hero.mobile-toggle.show-lyrics .hero-left {
+    display: none;
+  }
+  .player-hero.mobile-toggle.show-lyrics .lyrics-zone {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .player-hero.mobile-toggle.show-lyrics .lyrics-box,
+  .player-hero.mobile-toggle.show-lyrics .lyrics-empty {
+    height: clamp(280px, 50vh, 480px);
+  }
+  .mobile-toggle-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .lyrics-back {
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 @media (max-width: 560px) {
