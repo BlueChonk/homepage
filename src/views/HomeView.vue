@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import PhoebePoke from '../components/PhoebePoke.vue'
 import CialloGreet from '../components/CialloGreet.vue'
 import AppFooter from '../components/AppFooter.vue'
-import HomeMap from '../components/HomeMap.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { useLog } from '../composables/useLog'
 import { useNotes } from '../composables/useNotes'
@@ -146,14 +145,6 @@ onUnmounted(() => {
       <p v-show="notesLoading" class="my-note-loading">加载中…</p>
     </section>
 
-    <!-- 3D 地球 + 居住地 -->
-    <section class="my-globe">
-      <div class="my-globe-head">
-        <h2 class="my-globe-title">Residence</h2>
-      </div>
-      <HomeMap />
-    </section>
-
     <AppFooter />
   </div>
 </template>
@@ -282,42 +273,6 @@ onUnmounted(() => {
 }
 @keyframes blink {
   50% { opacity: 0; }
-}
-
-/* ===== 3D 地球 + 居住地模块 ===== */
-.my-globe {
-  width: 100%;
-  max-width: 860px;
-  margin: 44px auto 0;
-  padding: 0 20px;
-  text-align: left;
-}
-.my-globe-head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding-bottom: 14px;
-}
-.my-globe-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-@media (max-width: 640px) {
-  .my-globe {
-    max-width: 100%;
-    padding: 0 4px 0 0;
-  }
-}
-@media (max-width: 440px) {
-  .my-globe {
-    max-width: 100%;
-    padding: 0 2px 0 0;
-  }
 }
 
 /* ===== Note 笔记预览模块 ===== */
