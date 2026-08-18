@@ -2,7 +2,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { ConfigProvider, theme } from 'ant-design-vue'
 import AppHeader from './components/AppHeader.vue'
-import GlobalPlayer from './components/GlobalPlayer.vue'
 import HomeView from './views/HomeView.vue'
 import AboutView from './views/AboutView.vue'
 import AlbumView from './views/AlbumView.vue'
@@ -43,9 +42,6 @@ onMounted(() => usePlayer().load())
         <NoteView v-else-if="activeView === 'notes'" />
         <LogView v-else-if="activeView === 'log'" />
       </div>
-
-      <!-- 全局底部播放器（所有页面可见，支持折叠/展开） -->
-      <GlobalPlayer @navigate="onNavigate" />
     </div>
   </ConfigProvider>
 </template>
@@ -79,8 +75,7 @@ onMounted(() => usePlayer().load())
   display: block;
   overflow-y: auto;
   box-sizing: border-box;
-  /* 底部留出全局播放器空间：折叠约 3px，展开约 90px，取较大值确保不遮挡 */
-  padding-bottom: 96px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .app-body.scrollable::-webkit-scrollbar {
   width: 9px;
