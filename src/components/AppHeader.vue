@@ -12,6 +12,7 @@ const items = [
   { key: 'notes', label: 'Note' },
   { key: 'album', label: 'Album' },
   { key: 'music', label: 'Music' },
+  { key: 'bangumi', label: 'Bangumi' },
   { key: 'about', label: 'About' },
 ]
 

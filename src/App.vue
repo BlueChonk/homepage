@@ -8,6 +8,7 @@ import AlbumView from './views/AlbumView.vue'
 import NoteView from './views/NoteView.vue'
 import LogView from './views/LogView.vue'
 import MusicView from './views/MusicView.vue'
+import BangumiView from './views/BangumiView.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
@@ -23,7 +24,7 @@ function onNavigate(key) {
 }
 
 const scrollable = computed(
-  () => ['home', 'about', 'album', 'notes', 'log'].includes(activeView.value)
+  () => ['home', 'about', 'album', 'notes', 'log', 'bangumi'].includes(activeView.value)
 )
 
 onMounted(() => usePlayer().load())
@@ -41,6 +42,7 @@ onMounted(() => usePlayer().load())
         <MusicView v-else-if="activeView === 'music'" />
         <NoteView v-else-if="activeView === 'notes'" />
         <LogView v-else-if="activeView === 'log'" />
+        <BangumiView v-else-if="activeView === 'bangumi'" />
       </div>
     </div>
   </ConfigProvider>
