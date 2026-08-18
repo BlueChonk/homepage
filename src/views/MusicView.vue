@@ -138,34 +138,6 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-
-      <!-- 歌曲列表（精简版，无播放控制，仅展示和切歌） -->
-      <div class="track-list-bar">
-        <div class="track-list-head">
-          <span class="list-title">在线曲库</span>
-          <span class="list-count">{{ tracks.length }} 首 · QQ 音乐在线播放</span>
-        </div>
-        <div class="track-scroll">
-          <ul class="track-list">
-            <li
-              v-for="(t, i) in tracks"
-              :key="t.url || i"
-              :class="{ active: i === current }"
-              @click="play(i)"
-            >
-              <span class="track-idx">
-                <span v-if="i === current && playing" class="eq"><i></i><i></i><i></i></span>
-                <span v-else class="track-num">{{ i + 1 }}</span>
-              </span>
-              <span class="track-meta">
-                <span class="track-name">{{ t.title || t.name }}</span>
-                <span v-if="t.artist" class="track-by">{{ t.artist }}</span>
-              </span>
-              <span class="track-dur">{{ formatTime(t.duration) }}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
     </template>
 
     <template v-else>
@@ -431,128 +403,6 @@ html[data-theme="dark"] .stage-overlay {
   opacity: 0.72;
 }
 
-/* ===== 歌曲列表（底部固定，不含播放控制） ===== */
-.track-list-bar {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
-  width: 100%;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 0 44px 8px;
-}
-.track-list-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 8px;
-}
-.list-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-}
-.list-count {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-.track-scroll {
-  max-height: 160px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-}
-.track-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-.track-scroll::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 999px;
-}
-.track-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.track-list li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  transition: background 0.15s ease, border-color 0.15s ease;
-  max-width: 280px;
-}
-.track-list li:hover {
-  background: color-mix(in srgb, var(--surface-hover) 72%, transparent);
-}
-.track-list li.active {
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface) 30%);
-  border-color: var(--accent-border);
-}
-.track-idx {
-  flex: 0 0 24px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-.eq {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
-}
-.eq i {
-  width: 2.5px;
-  background: var(--accent);
-  border-radius: 2px;
-  animation: eq 0.9s ease-in-out infinite;
-}
-.eq i:nth-child(1) { height: 5px; animation-delay: 0s; }
-.eq i:nth-child(2) { height: 12px; animation-delay: 0.2s; }
-.eq i:nth-child(3) { height: 8px; animation-delay: 0.4s; }
-@keyframes eq {
-  0%, 100% { transform: scaleY(0.4); }
-  50% { transform: scaleY(1); }
-}
-.track-meta {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.track-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.track-list li:not(.active) .track-name {
-  color: var(--text-secondary);
-}
-.track-by {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.track-dur {
-  flex: 0 0 auto;
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
 .state {
   flex: 1 1 auto;
   display: flex;
@@ -601,9 +451,6 @@ html[data-theme="dark"] .stage-overlay {
   .lyrics-empty {
     height: clamp(180px, 36vh, 340px);
   }
-  .track-list-bar {
-    padding: 0 22px 8px;
-  }
 }
 @media (max-width: 560px) {
   .player-main {
@@ -621,9 +468,6 @@ html[data-theme="dark"] .stage-overlay {
   }
   .lyric-trans {
     font-size: 11.5px;
-  }
-  .track-list-bar {
-    padding: 0 12px 8px;
   }
 }
 @media (max-height: 700px) {

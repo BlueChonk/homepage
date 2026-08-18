@@ -45,7 +45,7 @@ onMounted(() => usePlayer().load())
       </div>
 
       <!-- 全局底部播放器（所有页面可见，支持折叠/展开） -->
-      <GlobalPlayer />
+      <GlobalPlayer @navigate="onNavigate" />
     </div>
   </ConfigProvider>
 </template>
