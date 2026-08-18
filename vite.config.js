@@ -109,9 +109,9 @@ export default defineConfig({
         syncQQPlaylist()
       },
     },
-    // 动态(feeds)：把 public/feeds/*.md 合并为 public/feeds.md；构建/启动/保存时自动重生成
+    // 日志(log)：把 public/log/*.md 合并为 public/log.md；构建/启动/保存时自动重生成
     {
-      name: 'feed:merge',
+      name: 'log:merge',
       buildStart() {
         mergeFeeds()
       },
