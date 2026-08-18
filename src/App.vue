@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ConfigProvider, Menu, theme } from 'ant-design-vue'
+import { ConfigProvider, theme } from 'ant-design-vue'
 import AppHeader from './components/AppHeader.vue'
+import GlobalPlayer from './components/GlobalPlayer.vue'
 import HomeView from './views/HomeView.vue'
 import AboutView from './views/AboutView.vue'
 import AlbumView from './views/AlbumView.vue'
@@ -16,29 +17,24 @@ const themeAlgorithm = computed(() =>
   themeResolved.value === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm
 )
 
-// 顶部导航栏的选择：home(点 logo) / 记录 / 相册 / 音乐 / 关于我
 const activeView = ref('home')
 
 function onNavigate(key) {
   activeView.value = key
 }
 
-// 主页(home)与关于我(about)、相册(album)等整页内容，需要随导航区滚动
 const scrollable = computed(
   () => ['home', 'about', 'album', 'notes', 'log'].includes(activeView.value)
 )
 
-// 应用启动即加载音乐清单，使后台播放（单例 Audio）随时可用，不受模块切换影响
 onMounted(() => usePlayer().load())
 </script>
 
 <template>
   <ConfigProvider :theme="{ algorithm: themeAlgorithm, token: { colorPrimary: '#4f6ef7' } }">
     <div class="app-shell">
-      <!-- (1) 顶部导航模块：始终在最上方，不被覆盖（使用 AntD Menu 组件） -->
       <AppHeader :active="activeView" @navigate="onNavigate" />
 
-      <!-- (2) 导航下方的内容区，随导航选择切换 -->
       <div class="app-body" :class="{ scrollable }">
         <HomeView v-if="activeView === 'home'" @navigate="onNavigate" />
         <AboutView v-else-if="activeView === 'about'" />
@@ -47,6 +43,9 @@ onMounted(() => usePlayer().load())
         <NoteView v-else-if="activeView === 'notes'" />
         <LogView v-else-if="activeView === 'log'" />
       </div>
+
+      <!-- 全局底部播放器（所有页面可见，支持折叠/展开） -->
+      <GlobalPlayer @navigate="onNavigate" />
     </div>
   </ConfigProvider>
 </template>
@@ -62,7 +61,6 @@ onMounted(() => usePlayer().load())
   background: var(--bg);
 }
 
-/* 内容区占满导航栏下方所有空间 */
 .app-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -77,11 +75,12 @@ onMounted(() => usePlayer().load())
   min-height: 100%;
 }
 
-/* home / about / music 等长内容页面可滚动 */
 .app-body.scrollable {
   display: block;
   overflow-y: auto;
   box-sizing: border-box;
+  /* 底部留出全局播放器的高度 */
+  padding-bottom: 56px;
 }
 .app-body.scrollable::-webkit-scrollbar {
   width: 9px;
