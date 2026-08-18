@@ -194,14 +194,39 @@ onUnmounted(() => {
   width: 100px;
 }
 @media (max-width: 640px) {
+  .home-page { padding: 24px 12px 0; }
   .hero-unit {
     flex-direction: column;
     gap: 16px;
   }
   .phoebe-inline :deep(.poke-fig img) { width: 88px; }
+  .avatar-ring {
+    width: 108px;
+    height: 108px;
+    margin-bottom: 16px;
+  }
+  .badge {
+    font-size: 12px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+  }
 }
 @media (max-width: 440px) {
-  .home-page { padding: 20px 4px 0; }
+  .home-page { padding: 16px 6px 0; }
+  .avatar-ring {
+    width: 92px;
+    height: 92px;
+    margin-bottom: 12px;
+  }
+  .my-note-card { padding: 16px 14px 14px; }
+  .my-note-card-title { font-size: 14px; }
+  .my-note-card-chevron {
+    right: 12px;
+    width: 30px;
+    height: 30px;
+  }
+  .my-note-card-text { padding-right: 38px; }
+  .my-note-card-excerpt { padding-right: 38px; }
 }
 
 .avatar-ring {

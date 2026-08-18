@@ -115,7 +115,7 @@ onUnmounted(() => {
 .album-page {
   min-height: 100%;
   color: var(--text);
-  padding: 40px 32px 0;
+  padding: 40px 32px 96px;
   font-family: inherit;
 }
 

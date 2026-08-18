@@ -43,4 +43,8 @@ const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered } = useLog()
   width: 100%;
   padding-top: 40px;
 }
+
+@media (max-width: 768px) {
+  .log-page { padding-top: 24px; }
+}
 </style>

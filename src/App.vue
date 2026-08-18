@@ -79,8 +79,8 @@ onMounted(() => usePlayer().load())
   display: block;
   overflow-y: auto;
   box-sizing: border-box;
-  /* 底部留出全局播放器进度条的空间 */
-  padding-bottom: 6px;
+  /* 底部留出全局播放器空间：折叠约 3px，展开约 90px，取较大值确保不遮挡 */
+  padding-bottom: 96px;
 }
 .app-body.scrollable::-webkit-scrollbar {
   width: 9px;
