@@ -4,8 +4,7 @@ import MarkdownPreview from '../components/common/MarkdownPreview.vue'
 import PhoebePoke from '../components/audio/PhoebePoke.vue'
 import CialloGreet from '../components/audio/CialloGreet.vue'
 import AppFooter from '../components/common/AppFooter.vue'
-import GlobeMap from '../components/map/GlobeMap.vue'
-import FootprintsMap from '../components/map/FootprintsMap.vue'
+import HomeMap from '../components/map/HomeMap.vue'
 
 const phrases = [
   '热爱二次元的技术宅',
@@ -223,16 +222,10 @@ onUnmounted(() => {})
       <div class="my-globe-head">
         <h2 class="my-globe-title">Residence</h2>
       </div>
-      <GlobeMap />
+      <HomeMap />
     </section>
 
-    <!-- 足迹：到访过的城市列表 -->
-    <section class="my-footprints">
-      <div class="my-footprints-head">
-        <h2 class="my-footprints-title">Footprints</h2>
-      </div>
-      <FootprintsMap />
-    </section>
+    
 
     <AppFooter />
   </div>
