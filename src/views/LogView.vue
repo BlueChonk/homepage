@@ -11,13 +11,12 @@ const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = u
 defineExpose({ reload: loadLogs })
 
 /* ===== 折叠/展开逻辑 ===== */
-const COLLAPSE_THRESHOLD = 150 // 超过此高度(px)自动折叠
-// collapsed[i]: null=未检测, true=已折叠, false=已展开
+// collapsed[i]: null=未检测, true=已折叠, false=已展开（默认收起）
 const collapsed = reactive({})
 // 记录是否已检测过，避免重复
 const checked = ref(new Set())
 
-/* 检测每条日志高度，超阈值则标记为可折叠 */
+/* 检测每条日志，全部默认收起 */
 function checkCollapse() {
   nextTick(() => {
     visibleLogs.value.forEach((_, i) => {
@@ -25,7 +24,7 @@ function checkCollapse() {
       const el = document.querySelector(`[data-log-idx="${i}"] .my-log-md`)
       if (el) {
         checked.value.add(i)
-        collapsed[i] = el.scrollHeight > COLLAPSE_THRESHOLD
+        collapsed[i] = true // 默认收起
       }
     })
   })
