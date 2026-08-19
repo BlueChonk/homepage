@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * QQ音乐歌单解析脚本（Node.js 版，原 parse-qq-playlist.py 的等价重写）
  *

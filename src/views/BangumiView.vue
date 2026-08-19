@@ -1,26 +1,27 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, reactive, onMounted } from 'vue'
 import AppFooter from '../components/AppFooter.vue'
 
-/* ===== 数据 ===== */
-const all = ref([])
-const loading = ref(true)
+/* ===== 按需分页配置 ===== */
+const BGM_API = 'https://api.bgm.tv'
+const UA = 'cecilia4412/homepage (https://github.com/cecilia4412/homepage)'
+const PAGE_SIZE = 30 // 每次请求拉取条数（API limit 上限 50），一次只渲染当前页
 
-/* 类别 tab：番剧 / 漫画 / 游戏 */
+/* 类别 tab：番剧 / 漫画 / 游戏（subject_type: 1=书籍含漫画, 2=动画, 4=游戏） */
 const activeCat = ref('anime')
 const cats = [
-  { key: 'anime', label: '番剧' },
-  { key: 'manga', label: '漫画' },
-  { key: 'game', label: '游戏' },
+  { key: 'anime', subjectType: 2, label: '番剧' },
+  { key: 'manga', subjectType: 1, label: '漫画' },
+  { key: 'game', subjectType: 4, label: '游戏' },
 ]
 
-/* 状态筛选：全部 / 在看 / 想看 / 看过 */
+/* 状态筛选：全部 / 在看 / 想看 / 看过（type: 1=想看, 2=看过, 3=在看） */
 const activeStatus = ref('all')
 const statuses = [
-  { key: 'all', label: '全部' },
-  { key: 'doing', label: '在看' },
-  { key: 'wish', label: '想看' },
-  { key: 'done', label: '看过' },
+  { key: 'all', label: '全部', type: null },
+  { key: 'doing', label: '在看', type: 3 },
+  { key: 'wish', label: '想看', type: 1 },
+  { key: 'done', label: '看过', type: 2 },
 ]
 
 const statusLabels = {
@@ -29,73 +30,195 @@ const statusLabels = {
   done: '看过',
 }
 
-/* ===== JSONL 解析 ===== */
-function parseJsonl(text) {
-  return text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => {
-      try {
-        return JSON.parse(l)
-      } catch {
-        return null
-      }
-    })
-    .filter(Boolean)
+const catOf = (key) => cats.find((c) => c.key === key)
+const statusOf = (key) => statuses.find((s) => s.key === key)
+
+/* ===== 状态 ===== */
+const username = ref('')       // 从 bangumi-config.json 获取
+const items = ref([])          // 当前类别+状态已分页加载的条目
+const total = ref(0)           // 当前请求维度的总数
+const loading = ref(true)      // 首次/切换加载
+const loadingMore = ref(false) // 加载更多分页
+const configMissing = ref(false)
+const error = ref('')
+
+/* 类别 tab 与状态筛选的计数（按需、分页后从服务端 total 读取） */
+const categoryTotals = reactive({ anime: null, manga: null, game: null })
+const statusCounts = ref({ all: 0, doing: 0, wish: 0, done: 0 })
+
+function apiHeaders() {
+  return { 'User-Agent': UA, Accept: 'application/json' }
 }
 
-async function loadData() {
+/* 单次请求超时：避免 api.bgm.tv 在 DNS 污染/路由被过滤的网络下无限挂起 */
+const REQ_TIMEOUT = 8000
+function withTimeout(promise, ms = REQ_TIMEOUT) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
+/* 请求路由：直连优先，失败则转经公共代理（allorigins）绕过 api.bgm.tv 连接超时 */
+const BGM_ROUTES = [
+  (direct) => direct,
+  (direct) => `https://api.allorigins.win/raw?url=${encodeURIComponent(direct)}`,
+]
+
+/* 带分页调用收藏接口。查看公开收藏无需 token。 */
+async function fetchCollectionPage(catKey, statusKey, offset, limit = PAGE_SIZE) {
+  const cat = catOf(catKey)
+  const st = statusOf(statusKey)
+  const q = new URLSearchParams()
+  q.set('subject_type', cat.subjectType)
+  if (st.type) q.set('type', st.type)
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+  const direct = `${BGM_API}/v0/users/${encodeURIComponent(username.value)}/collections?${q}`
+  let lastErr
+  for (const build of BGM_ROUTES) {
+    try {
+      const res = await withTimeout(fetch(build(direct), { headers: apiHeaders() }))
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+      return res.json() // { total, limit, offset, data }
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error('所有请求路由均失败')
+}
+
+/* 把 API 的集合项映射为前端展示对象（含内联的 subject 精简信息） */
+function mapCollectionItem(item, catKey) {
+  const s = item.subject || {}
+  const images = s.images || {}
+  return {
+    subject_id: item.subject_id || s.id,
+    type: catKey,
+    collection: ({ 1: 'wish', 2: 'done', 3: 'doing' }[item.type] || 'other'),
+    rate: item.rate || 0,
+    comment: item.comment || '',
+    tags: item.tags || [],
+    ep_status: item.ep_status || 0,
+    vol_status: item.vol_status || 0,
+    updated_at: item.updated_at || '',
+    name: s.name || '',
+    name_cn: s.name_cn || '',
+    summary: s.short_summary || '',
+    date: s.date || '',
+    eps: s.eps || 0,
+    volumes: s.volumes || 0,
+    score: s.score || 0,
+    rank: s.rank || 0,
+    image: images.common || images.large || images.medium || images.grid || '',
+  }
+}
+
+/* 加载首页（切换类别/状态时调用） */
+async function loadFirstPage() {
   loading.value = true
+  error.value = ''
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}bangumi.jsonl`, { cache: 'no-cache' })
-    const text = await res.text()
-    all.value = parseJsonl(text)
+    const json = await fetchCollectionPage(activeCat.value, activeStatus.value, 0)
+    items.value = json.data.map((it) => mapCollectionItem(it, activeCat.value))
+    total.value = json.total || 0
+    if (statusOf(activeStatus.value).type == null) categoryTotals[activeCat.value] = json.total
   } catch (e) {
-    console.error('[bangumi] 读取数据失败', e)
-    all.value = []
+    items.value = []
+    total.value = 0
+    error.value = `拉取失败：${e.message}`
   } finally {
     loading.value = false
   }
 }
 
-onMounted(loadData)
+/* 加载更多（offset 分页追加） */
+async function loadMore() {
+  if (loading.value || loadingMore.value) return
+  if (items.value.length >= total.value) return
+  loadingMore.value = true
+  try {
+    const json = await fetchCollectionPage(activeCat.value, activeStatus.value, items.value.length)
+    items.value.push(...json.data.map((it) => mapCollectionItem(it, activeCat.value)))
+  } catch (e) {
+    /* 静默失败，保留已加载数据 */
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const hasMore = computed(() => !loading.value && items.value.length > 0 && items.value.length < total.value)
+
+/* 当前类别各状态计数（limit=1 仅取 total，轻量请求） */
+async function loadStatusCounts() {
+  const catsCount = activeCat.value
+  const jobs = statuses.map(async (st) => {
+    try {
+      const json = await fetchCollectionPage(catsCount, st.key, 0, 1)
+      return { key: st.key, value: json.total || 0 }
+    } catch {
+      return { key: st.key, value: 0 }
+    }
+  })
+  const res = await Promise.all(jobs)
+  statusCounts.value = res.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), { all: 0, doing: 0, wish: 0, done: 0 })
+}
+
+/* 首次进入：读取用户名配置，再按需加载 */
+async function init() {
+  loading.value = true
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}bangumi-config.json`, { cache: 'no-cache' })
+    const cfg = await res.json()
+    username.value = cfg.username || ''
+  } catch {
+    username.value = ''
+  }
+  configMissing.value = !username.value
+  if (!username.value) {
+    loading.value = false
+    return
+  }
+  await Promise.all([loadFirstPage(), loadStatusCounts()])
+}
+
+let inited = false
+onMounted(() => {
+  init()
+  inited = true
+})
+
+/* 切分类别/状态时按需重新请求 */
+watch([activeCat, activeStatus], () => {
+  if (!inited || !username.value) return
+  loadFirstPage()
+  if (activeStatus.value === 'all') loadStatusCounts()
+})
 
 /* ===== 暴露 reload 方法供下拉刷新调用 ===== */
-defineExpose({ reload: loadData })
-
-/* ===== 计算属性 ===== */
-/** 按当前类别 + 状态筛选 */
-const filtered = computed(() => {
-  return all.value.filter((item) => {
-    if (item.type !== activeCat.value) return false
-    if (activeStatus.value !== 'all' && item.collection !== activeStatus.value) return false
-    return true
-  })
-})
-
-/** 各状态计数 */
-const counts = computed(() => {
-  const c = { anime: { all: 0, doing: 0, wish: 0, done: 0 }, manga: { all: 0, doing: 0, wish: 0, done: 0 }, game: { all: 0, doing: 0, wish: 0, done: 0 } }
-  for (const item of all.value) {
-    if (!c[item.type]) continue
-    c[item.type].all++
-    if (c[item.type][item.collection] !== undefined) c[item.type][item.collection]++
-  }
-  return c
-})
-
-const currentCounts = computed(() => counts.value[activeCat.value] || { all: 0, doing: 0, wish: 0, done: 0 })
+defineExpose({ reload: init })
 
 /* ===== 详情弹窗 ===== */
 const selectedItem = ref(null)
+const detailImgFailed = ref(false)
 
 function openDetail(item) {
   selectedItem.value = item
+  detailImgFailed.value = false
 }
 
 function closeDetail() {
   selectedItem.value = null
+  detailImgFailed.value = false
+}
+
+/* 封面图加载失败（lain.bgm.tv 封面 CDN 可能受网络限制）→ 显示占位符 */
+const failedImgs = ref(new Set())
+function markImgFailed(id) {
+  if (id == null) return
+  const next = new Set(failedImgs.value)
+  next.add(id)
+  failedImgs.value = next
 }
 
 /* ===== 工具函数 ===== */
@@ -139,7 +262,7 @@ function formatDate(date) {
         @click="activeCat = cat.key; activeStatus = 'all'"
       >
         {{ cat.label }}
-        <span class="bgm-tab-count">{{ counts[cat.key]?.all || 0 }}</span>
+        <span class="bgm-tab-count">{{ categoryTotals[cat.key] ?? '–' }}</span>
       </button>
     </div>
 
@@ -153,29 +276,41 @@ function formatDate(date) {
         @click="activeStatus = st.key"
       >
         {{ st.label }}
-        <span class="bgm-filter-count">{{ currentCounts[st.key] || 0 }}</span>
+        <span class="bgm-filter-count">{{ statusCounts[st.key] || 0 }}</span>
       </button>
     </div>
 
-    <!-- 加载中 -->
-    <div v-if="loading" class="bgm-state">加载中…</div>
-
-    <!-- 空状态 -->
-    <div v-else-if="filtered.length === 0" class="bgm-state empty">
-      <p>暂无数据</p>
-      <p class="hint">请确认 <code>.env</code> 中已配置 BANGUMI_TOKEN</p>
+    <!-- 配置缺失 -->
+    <div v-if="configMissing" class="bgm-state empty">
+      <p>未配置 Bangumi 用户名</p>
+      <p class="hint">请在构建环境设置 <code>BANGUMI_USERNAME</code> 或 <code>BANGUMI_TOKEN</code></p>
+      <p class="hint">本页面将在进入时按需分页请求 api.bgm.tv，不再一次性拉取全部数据</p>
     </div>
 
-    <!-- 卡片网格 -->
+    <!-- 加载中 -->
+    <div v-else-if="loading" class="bgm-state">加载中…</div>
+
+    <!-- 请求出错 -->
+    <div v-else-if="error" class="bgm-state empty">
+      <p>加载失败</p>
+      <p class="hint">{{ error }}</p>
+    </div>
+
+    <!-- 空状态 -->
+    <div v-else-if="items.length === 0" class="bgm-state empty">
+      <p>暂无数据</p>
+    </div>
+
+    <!-- 卡片网格（分页渲染：只渲染已加载页） -->
     <div v-else class="bgm-grid">
       <div
-        v-for="item in filtered"
+        v-for="item in items"
         :key="item.subject_id"
         class="bgm-card"
         @click="openDetail(item)"
       >
         <div class="bgm-card-cover">
-          <img v-if="item.image" :src="item.image" :alt="displayName(item)" loading="lazy" />
+          <img v-if="item.image && !failedImgs.has(item.subject_id)" :src="item.image" :alt="displayName(item)" loading="lazy" @error="markImgFailed(item.subject_id)" />
           <span v-else class="bgm-cover-placeholder">♪</span>
           <span class="bgm-card-badge" :class="`badge-${item.collection}`">
             {{ statusLabels[item.collection] || item.collection }}
@@ -196,6 +331,14 @@ function formatDate(date) {
       </div>
     </div>
 
+    <!-- 加载更多（分页） -->
+    <div v-if="hasMore || loadingMore" class="bgm-loadmore">
+      <button v-if="hasMore" class="bgm-loadmore-btn" :disabled="loadingMore" @click="loadMore">
+        {{ loadingMore ? '加载中…' : '加载更多' }}
+      </button>
+      <span v-else class="bgm-loadmore-tip">加载中…</span>
+    </div>
+
     <AppFooter />
 
     <!-- 详情弹窗 -->
@@ -204,7 +347,7 @@ function formatDate(date) {
         <div class="bgm-detail-panel">
           <button class="bgm-detail-close" @click="closeDetail" aria-label="关闭">✕</button>
           <div class="bgm-detail-cover">
-            <img v-if="selectedItem.image" :src="selectedItem.image" :alt="displayName(selectedItem)" />
+            <img v-if="selectedItem.image && !detailImgFailed" :src="selectedItem.image" :alt="displayName(selectedItem)" @error="detailImgFailed = true" />
             <span v-else class="bgm-cover-placeholder">♪</span>
           </div>
           <div class="bgm-detail-body">
@@ -351,12 +494,50 @@ function formatDate(date) {
   color: var(--text);
 }
 
-/* ===== 卡片网格：最少2列，根据设备宽度自动缩放 =====
-   min(50% - 9px) = 补偿 gap(18px) 的一半，确保两列总宽+gap ≤ 容器宽度 */
+/* ===== 加载更多 ===== */
+.bgm-loadmore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 0 8px;
+}
+.bgm-loadmore-btn {
+  padding: 8px 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.bgm-loadmore-btn:hover {
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+}
+.bgm-loadmore-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.bgm-loadmore-tip {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ===== 卡片网格：最少 2 列、最多 5 列，根据设备宽度自适应 ===== */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 9px), 160px), 1fr));
+  grid-template-columns: repeat(5, 1fr); /* 大屏最多 5 列 */
   gap: 18px;
+}
+@media (max-width: 1200px) {
+  .bgm-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 960px) {
+  .bgm-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .bgm-grid { grid-template-columns: repeat(2, 1fr); } /* 小屏最少 2 列 */
 }
 
 .bgm-card {
@@ -607,8 +788,8 @@ function formatDate(date) {
   .bgm-title { font-size: 20px; }
 }
 @media (max-width: 600px) {
-  /* gap 改为 12px，同步调整 calc 补偿值（半个 gap = 6px） */
-  .bgm-grid { gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 6px), 160px), 1fr)); }
+  /* gap 改为 12px（列数沿用上面断点，最小 2 列） */
+  .bgm-grid { gap: 12px; }
   .bgm-tabs { gap: 6px; }
   .bgm-tab { padding: 6px 14px; font-size: 13px; }
   .bgm-detail-panel { flex-direction: column; }

@@ -68,9 +68,15 @@ description: "Homepage personal site project conventions and structure guide. In
 
 ### 部署
 
+双分支部署（dev 开发版 / main 正式版）：
+
+- **main 分支**：生产正式版，由 **腾讯云 EdgeOne**（EdgeOne Maker）云端构建部署。仅当 dev 验证稳定后才推进。
+- **dev 分支**：开发版，同样用 **EdgeOne Maker** 部署（GitHub Actions 部署已关闭，`.github/workflows/deploy.yml` 已移除，`dev` 不再自动触发任何 CI）。
+- Bangumi 用户名不再依赖 `BANGUMI_TOKEN` 密钥：脚本回退到默认公开用户名 `799398`，构建期直接写入 `public/bangumi-config.json`，无需任何环境变量。
 - `base: './'`：相对路径，适配子路径部署
 - `emptyOutDir: false`：跳过 Vite 清空 dist 目录，避免批量删除保护拦截
 - 静态资源全部本地化（favicon、图标、音效），不依赖外链 CDN
+- Bangumi 页面为「按需分页」，不在构建期拉取全部收藏数据；构建期只解析用户名生成 `public/bangumi-config.json`
 
 ### 依赖体积控制策略
 
@@ -178,7 +184,8 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 
 ## Git 规范
 
-- 分支：`main`
+- 默认工作分支：**dev**（本地 `git checkout dev`）。**所有代码改动均先提交并推送到 dev**，不要直接推 main。
+- 存在两条分支：`main`（正式版）与 `dev`（开发版），均由 **腾讯云 EdgeOne Maker** 部署（GitHub Actions 已关闭）。
 - Commit message 格式：`<type>: <描述>`
   - `feat:` 新功能
   - `refactor:` 重构
@@ -187,19 +194,43 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 - 大改动**分块提交**（按逻辑拆分为多个 commit）
 - 推送前确保 build 通过
 
-### 主动推送策略
+### 主动推送策略（dev-first）
 
 当经过多次修改或大量代码变更后，**应主动触发代码推送**，不要积累过多未提交的改动。推送时遵循以下原则：
 
-1. **分块推送**：按功能模块或逻辑变更拆分为多个独立 commit，逐个推送，不要一次性把所有改动堆在一个 commit 里
-   - 例：同时改了播放器、相册、日志三个模块 → 拆成三个 commit 分别推送
-2. **触发时机**：以下情况应主动推送
+1. **始终推送 dev**：所有改动都提交到 `dev` 并 `git push origin dev`。`dev` 分支由 EdgeOne Maker 部署。
+2. **分块推送**：按功能模块或逻辑变更拆分为多个独立 commit，逐个推送，不要一次性把所有改动堆在一个 commit 里
+   - 例：同时改了播放器、bangumi、日志三个模块 → 拆成三个 commit 分别推送
+3. **触发时机**：以下情况应主动推送
    - 完成一个完整功能点或修复一个 bug 后
    - 连续修改超过 3 个文件后
    - 单次会话中进行了多轮迭代修改后
    - 用户明确要求推送时
-3. **推送前检查**：每次推送前运行 `npm run build` 确保无报错
-4. **commit 粒度**：一个 commit 只做一件事，message 清晰描述本次变更内容
+4. **推送前检查**：每次推送前运行 `npm run build` 确保无报错
+5. **commit 粒度**：一个 commit 只做一件事，message 清晰描述本次变更内容
+
+### 推进到 main（正式发布，需稳定后才触发）
+
+**不要每次改动都推 main。** 只有当 dev 分支已被 EdgeOne Maker 多次部署且均无错误（连续 2+ 次成功）、改动验证稳定后，才按正规流程推进一次 main。流程：
+
+1. **确认 dev 干净且已推送**：`git status` 无未提交改动，`git push origin dev` 已同步。
+2. **切换到 main 并同步远端**：
+   ```bash
+   git checkout main
+   git fetch origin
+   git pull --rebase origin main
+   ```
+3. **合并 dev 到 main 并解决冲突**：
+   ```bash
+   git merge origin/dev --no-ff
+   # 若报冲突：逐个打开冲突文件（<<<<<<< / ======= / >>>>>>>），保留正确内容后重新提交
+   # 不能用 --no-edit 或跳过冲突；解决后 git add <files> && git commit
+   ```
+4. **构建验证**：`npm run build`，确认无报错再推。
+5. **推送 main 触发 EdgeOne 部署**：`git push origin main`。
+6. **切回开发分支**：`git checkout dev`，继续后续开发。
+
+> 若合并冲突较多或不想用 rebase，也可用 PR 方式：`gh pr create -B main -H dev` 在 GitHub 上走 Code Review + Merge（解决冲突）后再合并到 main。
 
 ## 脚本说明（scripts/）
 

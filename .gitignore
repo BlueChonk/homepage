@@ -22,7 +22,7 @@ package-lock.json
 public/album.jsonl
 public/note.jsonl
 public/log.md
-public/bangumi.jsonl
+public/bangumi-config.json
 
 # Python
 __pycache__/
