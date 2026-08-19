@@ -489,12 +489,20 @@ function formatDate(date) {
   color: var(--text-tertiary);
 }
 
-/* ===== 卡片网格：最少2列，根据设备宽度自动缩放 =====
-   min(50% - 9px) = 补偿 gap(18px) 的一半，确保两列总宽+gap ≤ 容器宽度 */
+/* ===== 卡片网格：最少 2 列、最多 5 列，根据设备宽度自适应 ===== */
 .bgm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 9px), 160px), 1fr));
+  grid-template-columns: repeat(5, 1fr); /* 大屏最多 5 列 */
   gap: 18px;
+}
+@media (max-width: 1200px) {
+  .bgm-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 960px) {
+  .bgm-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .bgm-grid { grid-template-columns: repeat(2, 1fr); } /* 小屏最少 2 列 */
 }
 
 .bgm-card {
@@ -745,8 +753,8 @@ function formatDate(date) {
   .bgm-title { font-size: 20px; }
 }
 @media (max-width: 600px) {
-  /* gap 改为 12px，同步调整 calc 补偿值（半个 gap = 6px） */
-  .bgm-grid { gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(calc(50% - 6px), 160px), 1fr)); }
+  /* gap 改为 12px（列数沿用上面断点，最小 2 列） */
+  .bgm-grid { gap: 12px; }
   .bgm-tabs { gap: 6px; }
   .bgm-tab { padding: 6px 14px; font-size: 13px; }
   .bgm-detail-panel { flex-direction: column; }

@@ -540,7 +540,9 @@ html[data-theme="dark"] .stage-overlay {
 }
 .lyrics-box {
   position: relative;
-  height: clamp(280px, 50vh, 540px);
+  flex: 1 1 auto; /* 填满到播放控制栏上方，不再固定高度 */
+  min-height: 0;
+  width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
@@ -604,7 +606,8 @@ html[data-theme="dark"] .stage-overlay {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: clamp(280px, 50vh, 540px);
+  flex: 1 1 auto; /* 填满到播放控制栏上方，与歌词一致 */
+  min-height: 0;
   padding: 0 16px;
   text-align: center;
   color: var(--text-tertiary);
@@ -813,8 +816,8 @@ html[data-theme="dark"] .stage-overlay {
   position: absolute;
   top: 10px;
   right: 44px;
+  bottom: 100px; /* 底部延伸到播放控制栏上方（不再限制 max-height） */
   width: min(380px, 80vw);
-  max-height: 60%;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1000,14 +1003,10 @@ html[data-theme="dark"] .stage-overlay {
   .lyrics-zone {
     max-width: 620px;
   }
-  .player-hero.show-lyrics .lyrics-box,
-  .player-hero.show-lyrics .lyrics-empty {
-    height: clamp(280px, 50vh, 480px);
-  }
   .list-panel {
     right: 22px;
     width: min(360px, calc(100vw - 44px));
-    max-height: 55%;
+    bottom: 96px;
   }
 }
 
@@ -1072,7 +1071,7 @@ html[data-theme="dark"] .stage-overlay {
     right: 12px;
     left: 12px;
     width: auto;
-    max-height: 50%;
+    bottom: 96px;
   }
 }
 
@@ -1122,10 +1121,6 @@ html[data-theme="dark"] .stage-overlay {
   }
   .player-hero {
     gap: 12px;
-  }
-  .lyrics-box,
-  .lyrics-empty {
-    height: clamp(140px, 30vh, 260px);
   }
 }
 </style>

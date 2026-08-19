@@ -6,6 +6,15 @@ import AppFooter from '../components/AppFooter.vue'
 // 个人头像，仅用于个人资料展示
 const myAvatar = '/avatar.jpg'
 
+// 站点可能部署在子路径（如 GitHub Pages 的 /homepage/），
+// 绝对路径会落到域名根目录导致 404；统一用 BASE_URL 拼接成相对路径。
+function resolveUrl(u) {
+  if (!u) return ''
+  if (/^(https?:)?\/\//i.test(u)) return u
+  const base = import.meta.env.BASE_URL || '/'
+  return u.startsWith('/') ? base.replace(/\/$/, '') + u : u
+}
+
 // 工具按类别分组，每个类别以一个卡片式外框展示。
 // 图标优先引用各平台官方 favicon（远程 URL，符合项目规范）。
 const toolGroups = [
@@ -68,7 +77,7 @@ defineExpose({ reload: async () => {} })
     <header class="about-hero">
       <div class="hero-inner">
         <div class="avatar-ring">
-          <img :src="myAvatar" alt="Cecilia" draggable="false" />
+          <img :src="resolveUrl(myAvatar)" alt="Cecilia" draggable="false" />
         </div>
         <div class="hero-text">
           <div class="hello">Hi, 我是</div>
@@ -100,7 +109,7 @@ defineExpose({ reload: async () => {} })
             rel="noopener noreferrer"
             class="contact-card"
           >
-            <span class="contact-icon"><img :src="s.icon" :alt="s.label" /></span>
+            <span class="contact-icon"><img :src="resolveUrl(s.icon)" :alt="s.label" /></span>
             <span class="contact-label">{{ s.label }}</span>
           </a>
         </div>
@@ -130,7 +139,7 @@ defineExpose({ reload: async () => {} })
                 <img
                   v-if="t.icon && !iconFailed[t.name]"
                   class="info-icon"
-                  :src="t.icon"
+                  :src="resolveUrl(t.icon)"
                   :alt="t.name"
                   @error="onIconError(t.name)"
                 />
