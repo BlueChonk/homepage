@@ -1,18 +1,15 @@
-import { readdirSync, statSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readdirSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import { extractTitle, countWords, extractMeta } from './md-meta.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = join(__dirname, '..', 'public')
 
 const IMG_RE = /\.(jpe?g|png|gif|webp|avif|svg|ico)$/i
 const AUDIO_RE = /\.(mp3|wav|ogg|flac|m4a|aac)$/i
-const MD_RE = /\.md$/i
 
 const TARGETS = [
-  { folder: 'note', kind: 'note' },
   { folder: 'music', kind: 'audio', out: 'music.jsonl' },  // 手动维护，不自动生成
 ]
 
@@ -39,25 +36,7 @@ function generate(target) {
   const files = readdirSync(dir).filter((n) => statSync(join(dir, n)).isFile())
 
   let lines
-  if (target.kind === 'note') {
-    lines = files
-      .filter((n) => MD_RE.test(n))
-      .map((name) => {
-        const filePath = join(dir, name)
-        const { date, excerpt, category } = extractMeta(filePath)
-        const raw = readFileSync(filePath, 'utf-8')
-        return {
-          id: name,
-          file: `/note/${name}`,
-          title: extractTitle(filePath, name.replace(/\.md$/i, '')),
-          category,
-          date,
-          excerpt,
-          wordCount: countWords(raw),
-        }
-      })
-      .sort((a, b) => a.file.localeCompare(b.file))
-  } else if (target.kind === 'audio') {
+  if (target.kind === 'audio') {
     lines = files
       .filter((n) => AUDIO_RE.test(n))
       .sort((a, b) => a.localeCompare(b, 'zh'))

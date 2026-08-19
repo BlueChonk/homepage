@@ -22,7 +22,6 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --note-max: 820px;
   /* 页面背景：顶部一层极淡的蓝紫光晕，其余为干净浅灰 */
   --bg-glow: rgba(79, 110, 247, 0.05);
   --bg-gradient: radial-gradient(1100px 520px at 50% -12%, var(--bg-glow) 0%, transparent 62%);
@@ -97,7 +96,6 @@ body {
 /* 内容区/导航栏统一背景：浅色为极淡蓝紫光晕，暗色自动跟随 */
 .app-body.scrollable,
 .topnav,
-.note-page,
 .home-page,
 .log-page,
 .view,
@@ -120,7 +118,6 @@ body {
   .gp-ctrl:hover,
   .gp-play:hover,
   .record-card:hover,
-  .my-note-card:hover,
   .theme-btn:hover,
   .back-btn:hover,
   .back-top-btn:hover {
@@ -141,7 +138,6 @@ body {
   /* 移动端固定背景会导致 iOS Safari 滚动卡顿，改为随内容滚动 */
   .app-body.scrollable,
   .topnav,
-  .note-page,
   .home-page,
   .log-page,
   .view,

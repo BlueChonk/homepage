@@ -9,7 +9,7 @@ const emit = defineEmits(['navigate'])
 
 const items = [
   { key: 'log', label: 'Log' },
-  { key: 'notes', label: 'Note' },
+  
   
   { key: 'music', label: 'Music' },
   { key: 'bangumi', label: 'Bangumi' },

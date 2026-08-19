@@ -5,7 +5,6 @@ import AppHeader from './components/AppHeader.vue'
 import HomeView from './views/HomeView.vue'
 import AboutView from './views/AboutView.vue'
 
-import NoteView from './views/NoteView.vue'
 import LogView from './views/LogView.vue'
 import MusicView from './views/MusicView.vue'
 import BangumiView from './views/BangumiView.vue'
@@ -24,7 +23,7 @@ function onNavigate(key) {
 }
 
 const scrollable = computed(
-  () => ['home', 'about', 'notes', 'log', 'bangumi'].includes(activeView.value)
+  () => ['home', 'about', 'log', 'bangumi'].includes(activeView.value)
 )
 
 /* ===== 子页面 ref，用于调用 reload ===== */
@@ -121,7 +120,6 @@ onUnmounted(() => {
         <AboutView v-else-if="activeView === 'about'" ref="viewRef" />
         
         <MusicView v-else-if="activeView === 'music'" ref="viewRef" />
-        <NoteView v-else-if="activeView === 'notes'" ref="viewRef" />
         <LogView v-else-if="activeView === 'log'" ref="viewRef" />
         <BangumiView v-else-if="activeView === 'bangumi'" ref="viewRef" />
       </div>

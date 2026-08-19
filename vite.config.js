@@ -106,30 +106,6 @@ export default defineConfig({
       },
     },
     // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
-    // 笔记：public/note/*.md → public/note.jsonl
-    // 输出结构兼容 NoteView：{ id, file, title, category, date, excerpt }
-    // file 保留原始文件名（不编码），由 NoteView 用 encodeURI 统一编码
-    manifestPlugin({
-      dir: 'note',
-      outFile: 'note.jsonl',
-      urlBase: '/note',
-      test: (f) => /\.md$/i.test(f),
-      titleOf: (n) => n.replace(/\.md$/i, ''),
-      mapItem: (name) => {
-        const filePath = path.resolve(__dirname, 'public', 'note', name)
-        const { date, excerpt, category } = extractMeta(filePath)
-        const raw = fs.readFileSync(filePath, 'utf-8')
-        return {
-          id: name,
-          file: `/note/${name}`,
-          title: extractTitle(filePath, name.replace(/\.md$/i, '')),
-          category,
-          date,
-          excerpt,
-          wordCount: countWords(raw),
-        }
-      },
-    }),
     // Bangumi 收藏：拉取用户的番剧/漫画/游戏收藏（想看/在看/看过），写入 public/bangumi.jsonl
     {
       name: 'bangumi:sync',

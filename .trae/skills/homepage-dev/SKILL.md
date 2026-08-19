@@ -19,7 +19,7 @@ description: "Homepage personal site project conventions and structure guide. In
 | **Vite 6** | ^6.0.5 | 极快的 dev/build，原生 ESM，插件机制用于构建期自动生成数据清单；`base: './'` 适配子路径部署 |
 | **@vitejs/plugin-vue** | ^5.2.1 | Vue SFC 编译，官方标配 |
 
-不使用 vue-router：页面少（6 个视图），用 `App.vue` 中 `activeView` ref + `v-if/v-else-if` 手动切换即可，避免路由库的额外体积和 hash/history 模式配置。
+不使用 vue-router：页面少（5 个视图），用 `App.vue` 中 `activeView` ref + `v-if/v-else-if` 手动切换即可，避免路由库的额外体积和 hash/history 模式配置。
 
 ### UI 与样式
 
@@ -45,16 +45,7 @@ description: "Homepage personal site project conventions and structure guide. In
 | **shiki** | ^4.4.3 | VS Code 同款 TextMate 语法高亮，双主题输出，按需加载 18 种常用语言控制体积 |
 | **markdown-it-anchor** | ^9.2.1 | 标题锚点生成，支持中文 slug，重复标题自动追加序号 |
 
-`useShiki.js` 单例缓存 highlighter，`MarkdownPreview.vue` 封装渲染逻辑，通过 `variant` prop 区分笔记/日志/摘要等场景。
-
-### 地图
-
-| 选型 | 版本 | 选型理由 |
-|------|------|----------|
-| **高德地图 JS API** | - | 通过 `utils/amap.js` 动态加载，国内访问稳定，支持卫星图层和自定义样式 |
-| **maplibre-gl** | ^6.3.0 | 开源 3D 地球渲染（WebGL），展示居住地位置；`optimizeDeps.exclude` 避免预打包破坏 worker |
-
-高德 Key 通过 `vite.config.js` 的 `define` 在构建期烘焙进产物（`__AMAP_API_KEY__`），浏览器运行时无法直接读服务端环境变量。`HomeMap.vue` 同时使用高德（2D 定位标记）和 maplibre-gl（3D 地球）。
+`useShiki.js` 单例缓存 highlighter，`MarkdownPreview.vue` 封装渲染逻辑，通过 `variant` prop 区分日志/摘要等场景。
 
 ### 音乐播放
 
@@ -63,22 +54,20 @@ description: "Homepage personal site project conventions and structure guide. In
 | **MetingJS 公共 API** | `https://api.i-meto.com/meting/api` | 免费公共接口，根据歌名+歌手搜索 QQ 音乐，返回真实播放 URL、封面、歌词 |
 | **原生 Audio API** | `new Audio()` 单例 | 不依赖 Howler.js 等封装，单例 Audio 元素全生命周期复用，切换视图不中断播放 |
 
-`usePlayer.js` 核心：歌曲清单来自 `music.jsonl`（构建期由 Python 脚本从 QQ 音乐歌单拉取），播放时实时调 MetingJS API 解析音频 URL（有 30 分钟缓存 + 失效自动重试）。歌词同步由 `useLyrics.js` 处理。
+`usePlayer.js` 核心：歌曲清单来自 `music.jsonl`（构建期由 Node.js 脚本从 QQ 音乐歌单拉取），播放时实时调 MetingJS API 解析音频 URL（有 30 分钟缓存 + 失效自动重试）。歌词同步由 `useLyrics.js` 处理。
 
 ### 数据生成（构建期）
 
 | 脚本/插件 | 语言 | 选型理由 |
 |-----------|------|----------|
-| `parse-qq-playlist.py` | Python 3 标准库 | QQ 音乐 API 返回 JSONP/JSON，Python 标准库 `urllib` 即可处理，无需第三方依赖 |
+| `parse-qq-playlist.mjs` | Node.js ESM | QQ 音乐 API 返回 JSONP/JSON，通过 fetch 拉取，两种方案 fallback |
 | `gen-feed.mjs` | Node.js ESM | 日志合并逻辑简单，用 Node 原生 `fs` 即可，与 Vite 插件同进程调用 |
 | `md-meta.mjs` | Node.js ESM | Markdown 元数据提取（标题/日期/摘要/分类/字数），正则解析，无需 remark/front-matter 库 |
-| `manifestPlugin()` | Vite 插件 | 通用文件扫描器，参数化配置 dir/outFile/urlBase/test/mapItem，复用于相册和笔记 |
 
 数据格式选用 **JSONL**（JSON Lines，每行一个独立 JSON 对象）而非 JSON 数组：流式友好，前端 `split('\n').map(JSON.parse)` 即可解析，文件 append 不需重写整个数组。
 
 ### 部署
 
-- **EdgeOne**（腾讯云边缘计算）：云端构建时注入 `AMAP_API_KEY` 环境变量
 - `base: './'`：相对路径，适配子路径部署
 - `emptyOutDir: false`：跳过 Vite 清空 dist 目录，避免批量删除保护拦截
 - 静态资源全部本地化（favicon、图标、音效），不依赖外链 CDN
@@ -87,7 +76,6 @@ description: "Homepage personal site project conventions and structure guide. In
 
 - Ant Design Vue 按需引入（仅 ConfigProvider + Menu）
 - Shiki 按需加载语言（18 种常用语言 + 别名映射）
-- maplibre-gl `optimizeDeps.exclude` 避免 worker 预打包问题
 - 不引入 vue-router、pinia、axios 等非必需库
 - 构建产物 chunk 超 500KB 警告可忽略（主要是 maplibre-gl）
 
@@ -99,29 +87,23 @@ src/
 ├── main.js                 # 入口
 ├── style.css               # 全局样式 + CSS 变量（亮/暗主题）
 ├── views/                  # 页面级视图（以 View.vue 结尾）
-│   ├── HomeView.vue        # 首页：头像、打字机、Log 最近2条、Note 最近2篇、3D 地球
+│   ├── HomeView.vue        # 首页：头像、打字机、Log 最近2条
 │   ├── LogView.vue         # 全部日志
-│   ├── NoteView.vue        # 全部笔记
-│   ├── AlbumView.vue       # 相册
 │   ├── MusicView.vue       # 音乐播放器
 │   └── AboutView.vue       # 关于我
 ├── components/             # 通用可复用组件（不以 View 结尾）
 │   ├── AppHeader.vue       # 顶部导航栏（含迷你播放器、音量、主题切换）
 │   ├── AppFooter.vue       # 页脚
-│   ├── MarkdownPreview.vue # Markdown 渲染（variant: note/note-excerpt/log/...）
-│   ├── HomeMap.vue         # 3D 地球组件
+│   ├── MarkdownPreview.vue # Markdown 渲染（variant: log/note-excerpt/...）
 │   ├── CialloGreet.vue     # Ciallo 问候语
 │   └── PhoebePoke.vue      # 菲比戳一戳
 ├── composables/            # 逻辑复用（以 use 开头）
 │   ├── usePlayer.js        # 音乐播放器（单例 Audio，MetingJS 解析）
 │   ├── useLyrics.js        # 歌词同步
 │   ├── useLog.js           # 日志数据加载（limit 参数控制条数）
-│   ├── useNotes.js         # 笔记数据加载（limit 参数控制条数）
 │   ├── useTheme.js         # 亮/暗主题
 │   ├── useRandomSound.js   # 随机音效
 │   └── useShiki.js         # Shiki 代码高亮
-└── utils/
-    └── amap.js             # 高德地图工具
 ```
 
 ### 文件归属规则
@@ -140,16 +122,12 @@ src/
 
 | 插件 | 输入 | 输出 | 说明 |
 |------|------|------|------|
-| `qq-music:sync` | 歌单 ID（默认 7813925785） | `public/music.jsonl` + `public/music.info.json` | 调用 Python 脚本拉取 QQ 音乐歌单 |
+| `qq-music:sync` | 歌单 ID（默认 7813925785） | `public/music.jsonl` + `public/music.info.json` | 调用 Node.js 脚本拉取 QQ 音乐歌单 |
 | `log:merge` | `public/log/*.md` | `public/log.md` | 合并日志文件，按日期倒序 |
-| `manifest:album` | `public/album/*.{jpg,png,...}` | `public/album.jsonl` | 扫描图片生成清单 |
-| `manifest:note` | `public/note/*.md` | `public/note.jsonl` | 扫描笔记，提取标题/日期/摘要/字数 |
 
 ### .gitignore 中的自动生成文件（勿手动编辑）
 
 ```
-public/album.jsonl
-public/note.jsonl
 public/log.md
 ```
 
@@ -163,8 +141,6 @@ public/log.md
 |-----|------|--------|
 | `home` | HomeView | ✅ |
 | `log` | LogView | ✅ |
-| `notes` | NoteView | ✅ |
-| `album` | AlbumView | ✅ |
 | `music` | MusicView | ❌（自带内部滚动） |
 | `about` | AboutView | ✅ |
 
@@ -177,16 +153,9 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 - 日期由文件名提取，`gen-feed.mjs` 合并时自动在正文前加 `# 日期`（前端解析依赖此格式）
 - 文件按日期倒序排列（最新在前）
 
-## 笔记规范（public/note/）
-
-- 文件名：`<标题>.md`，中文标题即可
-- Markdown 正文顶部可用 frontmatter 或一级标题作为标题
-- `md-meta.mjs` 负责提取标题、日期、摘要、分类
-- 输出到 `note.jsonl` 的结构：`{ id, file, title, category, date, excerpt, wordCount }`
-
 ## 音乐规范
 
-- 数据来源：`public/music.jsonl`（由 `scripts/parse-qq-playlist.py` 生成）
+- 数据来源：`public/music.jsonl`（由 `scripts/parse-qq-playlist.mjs` 生成）
 - 每首歌包含全量 API 字段：title, artist, duration, cover, songmid, albummid, singers, vid, pay, size* 等
 - 播放时 `usePlayer.js` 通过 MetingJS API 实时解析音频 URL（URL 有时效，缓存 30 分钟）
 - 封面：`cover` 字段（由 albummid 构造 CDN URL）或 MetingJS 返回的 `onlineCover`（优先）
@@ -236,24 +205,17 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 
 | 脚本 | 用途 |
 |------|------|
-| `parse-qq-playlist.py` | QQ 音乐歌单解析（全量字段 + 封面 URL 构造 + 歌单信息） |
+| `parse-qq-playlist.mjs` | QQ 音乐歌单解析（全量字段 + 封面 URL 构造 + 歌单信息） |
 | `gen-feed.mjs` | 日志合并（导出 `mergeLogs`/`logDir`/`logOut`，兼容旧名 `mergeFeeds`/`feedsDir`） |
 | `md-meta.mjs` | Markdown 元数据提取（标题/日期/摘要/分类/字数） |
 | `generate-manifest.mjs` | 独立清单生成（手动运行 `npm run gen:manifest`） |
-| `gen-thumbs.ps1` | 相册缩略图生成（PowerShell） |
-| `fetch-163-lyrics.mjs` | 网易云歌词抓取（工具） |
-| `probe-cdn.mjs` | CDN 探测（调试用） |
-| `diagnose-music.mjs` | 音乐诊断（调试用） |
-| `test-music.mjs` | 音乐测试（调试用） |
-| `_shiki_test.mjs` | Shiki 高亮测试（调试用） |
 
 ## 环境变量
 
 | 变量 | 用途 | 注入方式 |
 |------|------|----------|
-| `AMAP_API_KEY` | 高德地图 Key | EdgeOne 云端构建注入，`define` 烘焙进产物 |
 | `QQ_PLAYLIST_ID` | QQ 音乐歌单 ID | 可选，默认 `7813925785` |
-| `HTTP_PROXY` / `HTTPS_PROXY` | 代理 | Python 脚本读取，默认 `http://127.0.0.1:18080` |
+| `HTTPS_PROXY` / `HTTP_PROXY` | 代理 | Node.js 脚本读取，无则直连 |
 
 ## 常见注意事项
 

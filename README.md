@@ -1,13 +1,12 @@
 # Homepage
 
-个人主页项目，基于 Vue 3 + Vite 构建，集成了首页展示、关于、音乐播放器、笔记、日志和 Bangumi 追番收藏等功能。
+个人主页项目，基于 Vue 3 + Vite 构建，集成了首页展示、关于、音乐播放器、日志和 Bangumi 追番收藏等功能。
 
 ## 功能特性
 
-- **首页**：个人介绍、打字机动画、最近日志与笔记预览
+- **首页**：个人介绍、打字机动画、最近日志预览
 - **关于页**：个人简介与技能展示
 - **音乐播放器**：基于 QQ 音乐歌单的在线播放，支持歌词显示（含双语歌词）、播放列表、进度控制
-- **笔记**：Markdown 笔记展示，支持 Shiki 代码高亮、目录锚点
 - **日志**：时间线形式的日志记录，长内容自动折叠/展开
 - **Bangumi 收藏**：番剧、漫画、游戏收藏记录展示，支持分类筛选与详情查看
 - **明暗主题**：支持亮色/暗色主题切换
@@ -38,14 +37,12 @@ homepage/
 │   │   ├── usePlayer.js     # 音乐播放器逻辑
 │   │   ├── useLyrics.js     # 歌词解析（双语支持）
 │   │   ├── useLog.js        # 日志数据加载
-│   │   ├── useNotes.js      # 笔记数据加载
 │   │   ├── useTheme.js      # 主题切换
 │   │   └── useShiki.js      # Shiki 高亮
 │   ├── views/               # 页面视图
 │   │   ├── HomeView.vue     # 首页
 │   │   ├── AboutView.vue    # 关于
 │   │   ├── MusicView.vue    # 音乐播放器
-│   │   ├── NoteView.vue     # 笔记
 │   │   ├── LogView.vue      # 日志
 │   │   └── BangumiView.vue  # Bangumi 收藏
 │   ├── App.vue              # 根组件
@@ -55,11 +52,10 @@ homepage/
 │   ├── fetch-bangumi.mjs    # 拉取 Bangumi 收藏数据
 │   ├── parse-qq-playlist.mjs # 解析 QQ 音乐歌单
 │   ├── generate-manifest.mjs# 生成清单
-│   ├── gen-feed.mjs         # 合并日志/笔记 Feed
+│   ├── gen-feed.mjs         # 合并日志 Feed
 ├── public/                  # 静态资源
 │   ├── audio/               # 音效文件
 │   ├── log/                 # 日志 Markdown 源文件
-│   ├── note/                # 笔记 Markdown 源文件
 │   ├── music.jsonl          # 歌单数据
 │   └── bangumi.jsonl        # Bangumi 收藏数据
 ├── .env.example             # 环境变量模板
@@ -123,7 +119,6 @@ BANGUMI_TOKEN=your_token node scripts/fetch-bangumi.mjs
 ## 数据说明
 
 - **日志**：`public/log/` 下的 Markdown 文件，由 `gen-feed.mjs` 合并为 `public/log.md`
-- **笔记**：`public/note/` 下的 Markdown 文件，清单由 `gen-feed.mjs` 生成 `public/note.jsonl`
 - **音乐**：QQ 音乐歌单通过 `parse-qq-playlist.mjs` 解析，输出 `public/music.jsonl`
 - **Bangumi**：通过 `fetch-bangumi.mjs` 从 Bangumi API 拉取收藏，输出 `public/bangumi.jsonl`
 
