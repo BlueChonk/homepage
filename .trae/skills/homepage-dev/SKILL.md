@@ -70,8 +70,9 @@ description: "Homepage personal site project conventions and structure guide. In
 
 双分支部署（dev 开发版 / main 正式版）：
 
-- **main 分支**：生产正式版，由 **腾讯云 EdgeOne** 云端构建部署，注入 `AMAP_API_KEY`/`BANGUMI_TOKEN` 等环境变量。仅当 dev 验证稳定后才推进。
-- **dev 分支**：开发版，用 **GitHub Actions**（`.github/workflows/deploy.yml`）自动构建并发布到 GitHub Pages（`https://cecilia4412.github.io/homepage/`），每一次 push 到 dev 都触发部署。
+- **main 分支**：生产正式版，由 **腾讯云 EdgeOne**（EdgeOne Maker）云端构建部署。仅当 dev 验证稳定后才推进。
+- **dev 分支**：开发版，同样用 **EdgeOne Maker** 部署（GitHub Actions 部署已关闭，`.github/workflows/deploy.yml` 已移除，`dev` 不再自动触发任何 CI）。
+- Bangumi 用户名不再依赖 `BANGUMI_TOKEN` 密钥：脚本回退到默认公开用户名 `799398`，构建期直接写入 `public/bangumi-config.json`，无需任何环境变量。
 - `base: './'`：相对路径，适配子路径部署
 - `emptyOutDir: false`：跳过 Vite 清空 dist 目录，避免批量删除保护拦截
 - 静态资源全部本地化（favicon、图标、音效），不依赖外链 CDN
@@ -184,7 +185,7 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 ## Git 规范
 
 - 默认工作分支：**dev**（本地 `git checkout dev`）。**所有代码改动均先提交并推送到 dev**，不要直接推 main。
-- 存在两条分支：`main`（正式版，EdgeOne 部署）与 `dev`（开发版，GitHub Actions 部署）。
+- 存在两条分支：`main`（正式版）与 `dev`（开发版），均由 **腾讯云 EdgeOne Maker** 部署（GitHub Actions 已关闭）。
 - Commit message 格式：`<type>: <描述>`
   - `feat:` 新功能
   - `refactor:` 重构
@@ -197,7 +198,7 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 
 当经过多次修改或大量代码变更后，**应主动触发代码推送**，不要积累过多未提交的改动。推送时遵循以下原则：
 
-1. **始终推送 dev**：所有改动都提交到 `dev` 并 `git push origin dev`。dev 每次 push 都会自动触发 GitHub Actions 构建部署到 Pages。
+1. **始终推送 dev**：所有改动都提交到 `dev` 并 `git push origin dev`。`dev` 分支由 EdgeOne Maker 部署。
 2. **分块推送**：按功能模块或逻辑变更拆分为多个独立 commit，逐个推送，不要一次性把所有改动堆在一个 commit 里
    - 例：同时改了播放器、bangumi、日志三个模块 → 拆成三个 commit 分别推送
 3. **触发时机**：以下情况应主动推送
@@ -210,7 +211,7 @@ AppHeader.vue 的导航菜单项 key 必须与 App.vue 的 `v-else-if` 匹配。
 
 ### 推进到 main（正式发布，需稳定后才触发）
 
-**不要每次改动都推 main。** 只有当 dev 分支已经多次推送且 GitHub Actions 部署均无错误（连续 2+ 次成功）、改动验证稳定后，才按正规流程推进一次 main。流程：
+**不要每次改动都推 main。** 只有当 dev 分支已被 EdgeOne Maker 多次部署且均无错误（连续 2+ 次成功）、改动验证稳定后，才按正规流程推进一次 main。流程：
 
 1. **确认 dev 干净且已推送**：`git status` 无未提交改动，`git push origin dev` 已同步。
 2. **切换到 main 并同步远端**：

@@ -13,8 +13,8 @@
  *   node scripts/fetch-bangumi.mjs
  *
  * 环境变量：
- *   BANGUMI_USERNAME  — 直接指定 Bangumi 用户名（推荐，无需 token）
- *   BANGUMI_TOKEN     — 或提供 Access Token，脚本会自动通过 /v0/me 解析用户名
+ *   BANGUMI_USERNAME  — 可选，覆盖默认 Bangumi 用户名（公开信息，非敏感）
+ *   不再依赖 Access Token（已从项目中移除，改用公开用户名直连，无需密钥）
  *
  * API 文档: https://bangumi.github.io/api/
  */
@@ -39,29 +39,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUTPUT = path.resolve(__dirname, '..', 'public', 'bangumi-config.json')
 
 const BANGUMI_API = 'https://api.bgm.tv'
-const TOKEN = process.env.BANGUMI_TOKEN || ''
+
+/* 默认公开用户名；可用环境变量 BANGUMI_USERNAME 覆盖。 */
+const DEFAULT_USERNAME = '799398'
 
 const UA = 'cecilia4412/homepage (https://github.com/cecilia4412/homepage)'
 
 /**
- * 优先使用 BANGUMI_USERNAME；否则用 Token 调用 /v0/me 解析用户名。
+ * 解析用户名：优先 BANGUMI_USERNAME，否则回退到默认公开用户名。
+ * 用户名是公开信息，查看公开收藏无需凭证。
  */
 async function resolveUsername() {
   if (process.env.BANGUMI_USERNAME) return process.env.BANGUMI_USERNAME.trim()
-  if (!TOKEN) return ''
-
-  const res = await fetch(`${BANGUMI_API}/v0/me`, {
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      'User-Agent': UA,
-      Accept: 'application/json',
-    },
-  })
-  if (!res.ok) {
-    throw new Error(`获取用户信息失败: HTTP ${res.status} ${res.statusText}`)
-  }
-  const data = await res.json()
-  return data.username
+  return DEFAULT_USERNAME
 }
 
 /**
@@ -83,14 +73,15 @@ export async function fetchBangumi() {
   if (username) {
     console.log(`[bangumi] 用户名解析成功: ${username} → public/bangumi-config.json`)
   } else {
-    console.warn('[bangumi] 未配置 BANGUMI_USERNAME/BANGUMI_TOKEN，请在构建环境配置后在 Bangumi 页面按需加载')
+    console.warn('[bangumi] 解析用户名失败，Bangumi 页面可能无法加载')
   }
 }
 
-// 直接运行
-if (import.meta.url === `file://${process.argv[1]}`) {
-  fetchBangumi().catch((e) => {
-    console.error('[bangumi] 解析失败:', e)
-    process.exit(1)
-  })
+// 直接运行（Windows 下 process.argv[1] 是普通路径而非 file: URL，改为判断脚本文件名）
+if (process.argv[1] && (process.argv[1].endsWith('fetch-bangumi.mjs') || /fetch-bangumi\.mjs$/i.test(process.argv[1]))) {
+  fetchBangumi()
+    .catch((e) => {
+      console.error('[bangumi] 解析失败:', e)
+      process.exit(1)
+    })
 }

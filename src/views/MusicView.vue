@@ -626,7 +626,6 @@ html[data-theme="dark"] .stage-overlay {
 .controls-bar {
   flex: 0 0 auto;
   padding: 8px 0 12px;
-  border-top: 1px solid var(--border-light);
 }
 .seek-row {
   display: flex;

@@ -50,6 +50,21 @@ function apiHeaders() {
   return { 'User-Agent': UA, Accept: 'application/json' }
 }
 
+/* 单次请求超时：避免 api.bgm.tv 在 DNS 污染/路由被过滤的网络下无限挂起 */
+const REQ_TIMEOUT = 8000
+function withTimeout(promise, ms = REQ_TIMEOUT) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
+/* 请求路由：直连优先，失败则转经公共代理（allorigins）绕过 api.bgm.tv 连接超时 */
+const BGM_ROUTES = [
+  (direct) => direct,
+  (direct) => `https://api.allorigins.win/raw?url=${encodeURIComponent(direct)}`,
+]
+
 /* 带分页调用收藏接口。查看公开收藏无需 token。 */
 async function fetchCollectionPage(catKey, statusKey, offset, limit = PAGE_SIZE) {
   const cat = catOf(catKey)
@@ -59,10 +74,18 @@ async function fetchCollectionPage(catKey, statusKey, offset, limit = PAGE_SIZE)
   if (st.type) q.set('type', st.type)
   q.set('limit', String(limit))
   q.set('offset', String(offset))
-  const url = `${BGM_API}/v0/users/${encodeURIComponent(username.value)}/collections?${q}`
-  const res = await fetch(url, { headers: apiHeaders() })
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
-  return res.json() // { total, limit, offset, data }
+  const direct = `${BGM_API}/v0/users/${encodeURIComponent(username.value)}/collections?${q}`
+  let lastErr
+  for (const build of BGM_ROUTES) {
+    try {
+      const res = await withTimeout(fetch(build(direct), { headers: apiHeaders() }))
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+      return res.json() // { total, limit, offset, data }
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error('所有请求路由均失败')
 }
 
 /* 把 API 的集合项映射为前端展示对象（含内联的 subject 精简信息） */
@@ -177,13 +200,25 @@ defineExpose({ reload: init })
 
 /* ===== 详情弹窗 ===== */
 const selectedItem = ref(null)
+const detailImgFailed = ref(false)
 
 function openDetail(item) {
   selectedItem.value = item
+  detailImgFailed.value = false
 }
 
 function closeDetail() {
   selectedItem.value = null
+  detailImgFailed.value = false
+}
+
+/* 封面图加载失败（lain.bgm.tv 封面 CDN 可能受网络限制）→ 显示占位符 */
+const failedImgs = ref(new Set())
+function markImgFailed(id) {
+  if (id == null) return
+  const next = new Set(failedImgs.value)
+  next.add(id)
+  failedImgs.value = next
 }
 
 /* ===== 工具函数 ===== */
@@ -275,7 +310,7 @@ function formatDate(date) {
         @click="openDetail(item)"
       >
         <div class="bgm-card-cover">
-          <img v-if="item.image" :src="item.image" :alt="displayName(item)" loading="lazy" />
+          <img v-if="item.image && !failedImgs.has(item.subject_id)" :src="item.image" :alt="displayName(item)" loading="lazy" @error="markImgFailed(item.subject_id)" />
           <span v-else class="bgm-cover-placeholder">♪</span>
           <span class="bgm-card-badge" :class="`badge-${item.collection}`">
             {{ statusLabels[item.collection] || item.collection }}
@@ -312,7 +347,7 @@ function formatDate(date) {
         <div class="bgm-detail-panel">
           <button class="bgm-detail-close" @click="closeDetail" aria-label="关闭">✕</button>
           <div class="bgm-detail-cover">
-            <img v-if="selectedItem.image" :src="selectedItem.image" :alt="displayName(selectedItem)" />
+            <img v-if="selectedItem.image && !detailImgFailed" :src="selectedItem.image" :alt="displayName(selectedItem)" @error="detailImgFailed = true" />
             <span v-else class="bgm-cover-placeholder">♪</span>
           </div>
           <div class="bgm-detail-body">
