@@ -165,7 +165,7 @@ async function loadStatusCounts() {
   statusCounts.value = res.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), { all: 0, doing: 0, wish: 0, done: 0 })
 }
 
-/* 首次进入：直接加载 */
+/* 首次进入：三个分类并行请求，按需分页加载 */
 async function init() {
   loading.value = true
   username.value = BANGUMI_USERNAME
@@ -174,7 +174,16 @@ async function init() {
     loading.value = false
     return
   }
-  await Promise.all([loadFirstPage(), loadStatusCounts()])
+  const cats = ['anime', 'manga', 'game']
+  const results = await Promise.all(cats.map((cat) => fetchCollectionPage(cat.key, 'all', 0)))
+  const allItems = results.flatMap((json, i) => json.data.map((it) => mapCollectionItem(it, cats[i].key)))
+  const allTotals = results.map((json) => json.total || 0)
+  items.value = allItems
+  total.value = allTotals.reduce((a, b) => a + b, 0)
+  categoryTotals.value = cats.reduce((acc, cat, i) => ({ ...acc, [cat.key]: allTotals[i] }), { anime: null, manga: null, game: null })
+  statusCounts.value = { all: total.value, doing: 0, wish: 0, done: 0 }
+  await loadStatusCounts()
+  loading.value = false
 }
 
 let inited = false
