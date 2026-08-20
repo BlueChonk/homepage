@@ -4,7 +4,7 @@ import { Card } from 'ant-design-vue'
 import AppFooter from '../components/AppFooter.vue'
 
 // 个人头像，仅用于个人资料展示
-const myAvatar = '/avatar.jpg'
+const myAvatar = '/avatar.png'
 
 // 站点可能部署在子路径（如 GitHub Pages 的 /homepage/），
 // 绝对路径会落到域名根目录导致 404；统一用 BASE_URL 拼接成相对路径。

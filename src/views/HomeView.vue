@@ -66,7 +66,7 @@ onUnmounted(() => {
     <!-- hero -->
     <section class="hero">
       <div class="avatar-ring">
-        <img src="/avatar.jpg" alt="Cecilia" draggable="false" />
+        <img src="/avatar.png" alt="Cecilia" draggable="false" />
       </div>
       <div class="badge">技术二次元宅</div>
 

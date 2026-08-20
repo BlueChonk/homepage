@@ -34,7 +34,8 @@ const catOf = (key) => cats.find((c) => c.key === key)
 const statusOf = (key) => statuses.find((s) => s.key === key)
 
 /* ===== 状态 ===== */
-const username = ref('')       // 从 bangumi-config.json 获取
+const BANGUMI_USERNAME = '799398'
+const username = ref('')       // 硬编码，公开信息
 const items = ref([])          // 当前类别+状态已分页加载的条目
 const total = ref(0)           // 当前请求维度的总数
 const loading = ref(true)      // 首次/切换加载
@@ -164,16 +165,10 @@ async function loadStatusCounts() {
   statusCounts.value = res.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), { all: 0, doing: 0, wish: 0, done: 0 })
 }
 
-/* 首次进入：读取用户名配置，再按需加载 */
+/* 首次进入：直接加载 */
 async function init() {
   loading.value = true
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}bangumi-config.json`, { cache: 'no-cache' })
-    const cfg = await res.json()
-    username.value = cfg.username || ''
-  } catch {
-    username.value = ''
-  }
+  username.value = BANGUMI_USERNAME
   configMissing.value = !username.value
   if (!username.value) {
     loading.value = false
@@ -283,7 +278,7 @@ function formatDate(date) {
     <!-- 配置缺失 -->
     <div v-if="configMissing" class="bgm-state empty">
       <p>未配置 Bangumi 用户名</p>
-      <p class="hint">请在构建环境设置 <code>BANGUMI_USERNAME</code> 或 <code>BANGUMI_TOKEN</code></p>
+      <p class="hint">请在构建环境设置 <code>BANGUMI_USERNAME</code></p>
       <p class="hint">本页面将在进入时按需分页请求 api.bgm.tv，不再一次性拉取全部数据</p>
     </div>
 
