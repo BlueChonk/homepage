@@ -80,16 +80,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // QQ音乐歌单：dev 启动 / 构建时自动拉取歌单写入 public/music.jsonl
-    {
-      name: 'qq-music:sync',
-      async buildStart() {
-        await syncQQPlaylist()
-      },
-      configureServer() {
-        syncQQPlaylist()
-      },
-    },
     // 日志(log)：把 public/log/*.md 合并为 public/log.md；构建/启动/保存时自动重生成
     {
       name: 'log:merge',
@@ -104,7 +94,13 @@ export default defineConfig({
         })
       },
     },
-    // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
+    // 音乐：构建时拉取 QQ 音乐歌单写入 public/music.jsonl；dev 启动时不拉取，需手动运行 node scripts/parse-qq-playlist.mjs
+    {
+      name: 'qq-music:build',
+      async buildStart() {
+        await syncQQPlaylist()
+      },
+    },
     // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
   base: './',

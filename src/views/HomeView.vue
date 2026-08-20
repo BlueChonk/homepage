@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import PhoebePoke from '../components/PhoebePoke.vue'
 import CialloGreet from '../components/CialloGreet.vue'
@@ -66,11 +66,11 @@ onUnmounted(() => {
     <!-- hero -->
     <section class="hero">
       <div class="avatar-ring">
-        <img src="/avatar.png" alt="Cecilia" draggable="false" />
+        <img src="/avatar.png" alt="BlueChonk" draggable="false" />
       </div>
       <div class="badge">技术二次元宅</div>
 
-      <h1 class="title">Hi，我是 Cecilia</h1>
+      <h1 class="title">Hi，我是 BlueChonk</h1>
 
       <!-- 打字文字 + Ciallo + 菲比：一个整体 -->
       <div class="hero-unit">

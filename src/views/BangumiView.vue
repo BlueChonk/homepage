@@ -4,7 +4,7 @@ import AppFooter from '../components/AppFooter.vue'
 
 /* ===== 按需分页配置 ===== */
 const BGM_API = 'https://api.bgm.tv'
-const UA = 'cecilia4412/homepage (https://github.com/cecilia4412/homepage)'
+const UA = 'BlueChonk/homepage (https://github.com/BlueChonk/homepage)'
 const PAGE_SIZE = 30 // 每次请求拉取条数（API limit 上限 50），一次只渲染当前页
 
 /* 类别 tab：番剧 / 漫画 / 游戏（subject_type: 1=书籍含漫画, 2=动画, 4=游戏） */
@@ -187,7 +187,7 @@ onMounted(() => {
 watch([activeCat, activeStatus], () => {
   if (!inited || !username.value) return
   loadFirstPage()
-  if (activeStatus.value === 'all') loadStatusCounts()
+  loadStatusCounts()
 })
 
 /* ===== 暴露 reload 方法供下拉刷新调用 ===== */

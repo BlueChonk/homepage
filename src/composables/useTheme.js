@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 
-const STORAGE_KEY = 'cecilia-theme-mode'
+const STORAGE_KEY = 'bluechonk-theme-mode'
 const VALID_MODES = ['light', 'dark', 'system']
 
 const mode = ref('system')

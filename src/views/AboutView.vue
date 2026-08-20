@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref } from 'vue'
 import { Card } from 'ant-design-vue'
 import AppFooter from '../components/AppFooter.vue'
@@ -51,7 +51,7 @@ const toolGroups = [
 ]
 
 const socials = [
-  { icon: '/icon/github.svg', href: 'https://github.com/cecilia4412', label: 'GitHub' },
+  { icon: '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
   { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
   { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
 ]
@@ -77,11 +77,11 @@ defineExpose({ reload: async () => {} })
     <header class="about-hero">
       <div class="hero-inner">
         <div class="avatar-ring">
-          <img :src="resolveUrl(myAvatar)" alt="Cecilia" draggable="false" />
+          <img :src="resolveUrl(myAvatar)" alt="BlueChonk" draggable="false" />
         </div>
         <div class="hero-text">
           <div class="hello">Hi, 我是</div>
-          <h1 class="name">Cecilia</h1>
+          <h1 class="name">BlueChonk</h1>
           <p class="tagline">技术宅 · 二次元 · 全栈开发</p>
           <p class="hero-sub">前端全栈二次元</p>
         </div>
@@ -93,7 +93,7 @@ defineExpose({ reload: async () => {} })
       <section class="block">
         <h2 class="block-title">About</h2>
         <p class="about-intro">
-          你好，我是 Cecilia，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具，也喜欢把生活里的美食和光影记录下来。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
+          你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具，也喜欢把生活里的美食和光影记录下来。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
         </p>
       </section>
 
