@@ -5,7 +5,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
 import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
-import { syncPlaylist } from './scripts/parse-qq-playlist.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -94,13 +93,8 @@ export default defineConfig({
         })
       },
     },
-    // 音乐：构建时拉取 QQ 音乐歌单写入 public/music.jsonl；dev 启动时不拉取，需手动运行 node scripts/parse-qq-playlist.mjs
-    {
-      name: 'qq-music:build',
-      async buildStart() {
-        await syncQQPlaylist()
-      },
-    },
+    // 音乐：前端进入音乐页面时按需请求 QQ 音乐 API，不再构建期拉取
+    // 手动生成 jsonl（可选）：node scripts/parse-qq-playlist.mjs [歌单ID]
     // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
   base: './',
