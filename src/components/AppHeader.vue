@@ -9,8 +9,6 @@ const emit = defineEmits(['navigate'])
 
 const items = [
   { key: 'log', label: 'Log' },
-  
-  
   { key: 'music', label: 'Music' },
   { key: 'bangumi', label: 'Bangumi' },
   { key: 'about', label: 'About' },
@@ -37,7 +35,7 @@ function toggleTheme() {
     <!-- 左侧品牌 -->
     <div class="nav-left">
       <a class="brand" href="#" @click.prevent="onBrand">
-        <img class="brand-avatar" src="/avatar.jpg" alt="Cecilia" />
+        <img class="brand-avatar" src="/avatar.png" alt="Cecilia" />
         <span class="brand-text">
           <span class="brand-name">Cecilia's</span>
           <span class="brand-suffix">Home</span>
