@@ -149,7 +149,7 @@ export function useLyrics() {
   const { currentTrack, currentTime, seekTo, play, onlineLrc } = usePlayer()
 
   const raw = ref('')
-  const loading = ref(false)
+  const loading = ref(true)
   const failed = ref(false)
   let fetchId = 0
 
