@@ -3,8 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
-import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
+import { mergeFeeds, feedsDir } from './scripts/generate-log.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
