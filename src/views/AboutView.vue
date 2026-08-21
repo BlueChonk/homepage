@@ -1,7 +1,8 @@
-﻿<script setup>
-import { ref } from 'vue'
+<script setup>
+import { ref, computed } from 'vue'
 import { Card } from 'ant-design-vue'
 import AppFooter from '../components/AppFooter.vue'
+import { useTheme } from '../composables/useTheme'
 
 // 个人头像，仅用于个人资料展示
 const myAvatar = '/avatar.png'
@@ -21,9 +22,8 @@ const toolGroups = [
   {
     title: 'AI 打工团',
     items: [
+      { name: 'DSH', desc: 'DeepSeek Harness，智能体运行时框架', icon: '/icon/deepseek.svg', href: 'https://www.deepseek.com/harness/' },
       { name: 'Codex', desc: '主力生产力，写码如喝水，摸鱼终结者', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
-      { name: 'Deepseek', desc: '便宜又能打，算力刺客', icon: '/icon/deepseek.svg', href: 'https://chat.deepseek.com/' },
-      { name: '豆包', desc: '豆包不是干粮，是搭子', icon: '/icon/doubao.png', href: 'https://www.doubao.com/chat/' },
     ],
   },
   {
@@ -50,11 +50,15 @@ const toolGroups = [
   },
 ]
 
-const socials = [
-  { icon: '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
-  { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
-  { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
-]
+const { resolved: themeResolved } = useTheme()
+const socials = computed(() => {
+  const isDark = themeResolved.value === 'dark'
+  return [
+    { icon: isDark ? '/icon/github-dark.svg' : '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
+    { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
+    { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
+  ]
+})
 
 // 图标加载失败时显示首字母徽章作为兜底
 const iconFailed = ref({})
@@ -97,23 +101,7 @@ defineExpose({ reload: async () => {} })
         </p>
       </section>
 
-      <!-- 联系方式 -->
-      <section class="contact-section">
-        <h2 class="block-title">Contact</h2>
-        <div class="contact-grid">
-          <a
-            v-for="s in socials"
-            :key="s.label"
-            :href="s.href"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="contact-card"
-          >
-            <span class="contact-icon"><img :src="resolveUrl(s.icon)" :alt="s.label" /></span>
-            <span class="contact-label">{{ s.label }}</span>
-          </a>
-        </div>
-      </section>
+
 
       <!-- 2. Tools / 常用工具（按类别分卡片式外框展示） -->
       <section class="block">

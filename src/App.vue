@@ -75,10 +75,8 @@ function onTouchEnd() {
 }
 
 async function reloadCurrent() {
-  // 调用子页面暴露的 reload 方法
-  if (viewRef.value?.reload) {
-    await viewRef.value.reload()
-  }
+  // 下拉刷新：重新请求当前页面，强制跳过缓存
+  window.location.reload()
 }
 
 onMounted(() => {

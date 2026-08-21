@@ -96,6 +96,10 @@ export default defineConfig({
     // 手动生成 jsonl（可选）：node scripts/parse-qq-playlist.mjs [歌单ID]
     // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+  },
   base: './',
   optimizeDeps: {
     exclude: ['ant-design-vue/dist/reset.css'],
