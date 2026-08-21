@@ -154,6 +154,36 @@ function openLink(href) {
       <p class="about-intro">
         你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
       </p>
+      <!-- DSH 使用统计 -->
+      <div class="dsh-stats">
+        <div class="dsh-stats-title">DSH 使用统计</div>
+        <div class="dsh-stats-grid">
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">27</span>
+            <span class="dsh-stat-label">会话数</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">364</span>
+            <span class="dsh-stat-label">对话轮数</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">7</span>
+            <span class="dsh-stat-label">使用天数</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">98.9%</span>
+            <span class="dsh-stat-label">缓存命中率</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">544 万</span>
+            <span class="dsh-stat-label">输入+输出 tokens</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">4.9 亿</span>
+            <span class="dsh-stat-label">总 tokens（含缓存）</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Tools -->
@@ -420,7 +450,40 @@ function openLink(href) {
   font-size: 15px;
   line-height: 1.8;
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 16px;
+}
+
+.dsh-stats {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.dsh-stats-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.dsh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.dsh-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.dsh-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.dsh-stat-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 /* tools */
