@@ -160,24 +160,12 @@ function openLink(href) {
         <div class="dsh-stats-title">DSH 使用统计</div>
         <div class="dsh-stats-grid">
           <div class="dsh-stat-item">
-            <span class="dsh-stat-num">27</span>
-            <span class="dsh-stat-label">会话数</span>
-          </div>
-          <div class="dsh-stat-item">
-            <span class="dsh-stat-num">364</span>
-            <span class="dsh-stat-label">对话轮数</span>
-          </div>
-          <div class="dsh-stat-item">
-            <span class="dsh-stat-num">7</span>
-            <span class="dsh-stat-label">使用天数</span>
-          </div>
-          <div class="dsh-stat-item">
-            <span class="dsh-stat-num">98.9%</span>
-            <span class="dsh-stat-label">缓存命中率</span>
-          </div>
-          <div class="dsh-stat-item">
             <span class="dsh-stat-num">508M</span>
             <span class="dsh-stat-label">总 tokens</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">5</span>
+            <span class="dsh-stat-label">使用天数</span>
           </div>
         </div>
         <!-- 每日记录 -->
