@@ -4,6 +4,7 @@ import PhoebePoke from '../components/PhoebePoke.vue'
 import CialloGreet from '../components/CialloGreet.vue'
 import AppFooter from '../components/AppFooter.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
+import { Card } from 'ant-design-vue'
 import { useLog } from '../composables/useLog'
 import { useTheme } from '../composables/useTheme'
 
@@ -32,12 +33,12 @@ const socials = computed(() => {
 /* 日志时间线：只显示最近 2 条 */
 const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog(2)
 
-/* 暴露 reload 方法供下拉刷新调用 */
 async function reload() {
   await loadLogs()
 }
 defineExpose({ reload })
 
+/* 打字机效果 */
 const phrases = [
   '热爱二次元的技术宅',
   '前端 / 全栈开发者',
@@ -77,6 +78,47 @@ onMounted(() => {
 onUnmounted(() => {
   clearTimeout(timer)
 })
+
+/* About 工具组 */
+const toolGroups = [
+  {
+    title: 'AI 打工团',
+    items: [
+      { name: 'DSH', desc: 'DeepSeek Harness，智能体运行时框架', icon: '/icon/deepseek.svg', href: 'https://www.deepseek.com/harness/' },
+      { name: 'Codex', desc: '主力生产力，写码如喝水，摸鱼终结者', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
+    ],
+  },
+  {
+    title: '写码装备',
+    items: [
+      { name: 'VS Code', desc: '插件比代码还多的编辑器', icon: '/icon/vscode.ico', href: 'https://code.visualstudio.com/' },
+      { name: 'Git', desc: '后悔药批发商', icon: '/icon/git.ico', href: 'https://git-scm.com/' },
+      { name: 'Apifox', desc: '前后端对线的和事佬', icon: '/icon/apifox.ico', href: 'https://apifox.com/' },
+    ],
+  },
+  {
+    title: '环境搬家队',
+    items: [
+      { name: 'Docker', desc: '一键打包，走哪跑哪', icon: '/icon/docker.ico', href: 'https://www.docker.com/' },
+      { name: 'Miniconda', desc: '给每个项目单独开间房', icon: '/icon/miniconda.ico', href: 'https://docs.anaconda.net.cn/miniconda/' },
+      { name: 'Ubuntu', desc: '命令行钉子户', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
+    ],
+  },
+  {
+    title: '数据库观光团',
+    items: [
+      { name: 'DBX', desc: '一拖七十，数据库大管家', icon: '/icon/dbx.png', href: 'https://dbxio.com/cn' },
+    ],
+  },
+]
+
+const iconFailed = ref({})
+function onIconError(name) {
+  iconFailed.value = { ...iconFailed.value, [name]: true }
+}
+function openLink(href) {
+  if (href) window.open(href, '_blank', 'noopener')
+}
 </script>
 
 <template>
@@ -115,6 +157,56 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- About 介绍 -->
+    <section class="block about-section">
+      <h2 class="block-title">About</h2>
+      <p class="about-intro">
+        你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具，也喜欢把生活里的美食和光影记录下来。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
+      </p>
+    </section>
+
+    <!-- Tools -->
+    <section class="block">
+      <h2 class="block-title">Tools</h2>
+      <div
+        v-for="g in toolGroups"
+        :key="g.title"
+        class="tool-group"
+      >
+        <h3 class="group-title">{{ g.title }}</h3>
+        <div class="info-grid">
+          <Card
+            v-for="t in g.items"
+            :key="t.name"
+            :bordered="false"
+            class="info-card"
+            hoverable
+            :class="{ 'is-link': t.href }"
+            @click="openLink(t.href)"
+          >
+            <div class="info-row">
+              <div class="info-icon-wrap">
+                <img
+                  v-if="t.icon && !iconFailed[t.name]"
+                  class="info-icon"
+                  :src="resolveUrl(t.icon)"
+                  :alt="t.name"
+                  @error="onIconError(t.name)"
+                />
+                <span v-else class="info-icon-fallback">
+                  {{ t.name.slice(0, 1) }}
+                </span>
+              </div>
+              <div class="info-text">
+                <div class="info-name">{{ t.name }}</div>
+                <div class="info-desc">{{ t.desc }}</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </section>
+
     <!-- Log 动态时间线（最近 2 条） -->
     <section class="my-log">
       <div class="my-log-head">
@@ -129,7 +221,7 @@ onUnmounted(() => {
           <span class="my-log-time">{{ log.date }}</span>
           <span class="my-log-dash" aria-hidden="true">──</span>
           <div class="my-log-body">
-            <MarkdownPreview class="my-log-md" :source="log.text" variant="log" @md-rendered="onLogRendered" />
+            <MarkdownPreview class="my-log-md" :source="log.body" variant="log" @md-rendered="onLogRendered" />
           </div>
         </li>
         <li v-if="!logLoading && myLogs.length === 0" class="my-log-empty">
@@ -212,7 +304,7 @@ onUnmounted(() => {
     height: 92px;
     margin-bottom: 12px;
   }
-  }
+}
 
 .avatar-ring {
   width: 132px;
@@ -318,5 +410,207 @@ onUnmounted(() => {
   color: var(--text);
 }
 
+/* blocks */
+.block {
+  width: 100%;
+  max-width: 880px;
+  text-align: left;
+  margin-top: 36px;
+}
+.block-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 18px;
+}
 
+/* about section */
+.about-intro {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* tools */
+.tool-group {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 20px 22px 22px;
+  margin-bottom: 18px;
+}
+.tool-group:last-child {
+  margin-bottom: 0;
+}
+.group-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 16px;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.info-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+}
+.info-card :deep(.ant-card-body) {
+  padding: 16px 18px;
+}
+.info-card:hover {
+  border-color: var(--accent-border) !important;
+  background: var(--accent-soft) !important;
+}
+.info-card.is-link {
+  cursor: pointer;
+}
+
+/* 工具卡片：图标在左、文字在右，水平排列 */
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.info-icon-wrap {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+.info-icon-fallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-text {
+  min-width: 0;
+}
+.info-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.info-desc {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Log */
+.my-log {
+  width: 100%;
+  max-width: 880px;
+  text-align: left;
+  margin-top: 36px;
+}
+.my-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.my-log-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.my-log-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.my-log-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.my-log-toggle:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.my-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.my-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.my-log-time {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.my-log-dash {
+  color: var(--border);
+  flex: 0 0 auto;
+}
+.my-log-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.my-log-empty {
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+.my-log-loading {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding: 24px 16px 0;
+  }
+  .block {
+    margin-top: 24px;
+  }
+  .my-log {
+    margin-top: 24px;
+  }
+}
 </style>

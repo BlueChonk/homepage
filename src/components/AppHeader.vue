@@ -1,6 +1,7 @@
-﻿<script setup>
+<script setup>
 import { Menu } from 'ant-design-vue'
 import { useTheme } from '../composables/useTheme'
+import MiniMusicPlayer from './MiniMusicPlayer.vue'
 
 const props = defineProps({
   active: { type: String, default: 'home' },
@@ -9,9 +10,7 @@ const emit = defineEmits(['navigate'])
 
 const items = [
   { key: 'log', label: 'Log' },
-  { key: 'music', label: 'Music' },
-  { key: 'bangumi', label: 'Bangumi' },
-  { key: 'about', label: 'About' },
+  { key: 'blog', label: 'Blog' },
 ]
 
 function onClick({ key }) {
@@ -32,7 +31,7 @@ function toggleTheme() {
 
 <template>
   <header class="topnav">
-    <!-- 左侧品牌 -->
+    <!-- 左侧品牌 + 音乐播放器 -->
     <div class="nav-left">
       <a class="brand" href="#" @click.prevent="onBrand">
         <img class="brand-avatar" src="/avatar.png" alt="BlueChonk" />
@@ -41,6 +40,9 @@ function toggleTheme() {
           <span class="brand-suffix">Home</span>
         </span>
       </a>
+      <div class="nav-music">
+        <MiniMusicPlayer />
+      </div>
     </div>
 
     <!-- 中间导航：绝对居中，不与左右两侧内容互相挤压 -->
@@ -105,12 +107,19 @@ function toggleTheme() {
     linear-gradient(90deg, transparent 0%, var(--border) 18%, var(--border) 82%, transparent 100%) no-repeat 0 2px / 100% 1px;
 }
 
-/* 左侧品牌 */
+/* 左侧品牌 + 音乐播放器 */
 .nav-left {
   display: flex;
   align-items: center;
+  gap: 16px;
   min-width: 0;
   flex: 1 1 0;
+}
+.nav-music {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 .brand {
   display: flex;

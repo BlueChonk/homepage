@@ -1,34 +1,15 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-/* 日志按日期排序：新日期在前 */
-function dateKey(date) {
-  const m = String(date || '').match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
-  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : ''
-}
-
-/* 解析 log.md：以 "# 日期" 为分隔，标题下的连续文本作为该日正文。 */
-function parseLog(md) {
-  const logs = []
-  let cur = null
-  const flush = () => {
-    if (cur) {
-      cur.text = cur.text.trim()
-      logs.push(cur)
-    }
-  }
-  for (const raw of md.split('\n')) {
-    const line = raw.replace(/\s+$/, '')
-    const m = line.match(/^#\s+(.+?)\s*$/)
-    if (m) {
-      flush()
-      cur = { date: m[1], text: '' }
-    } else if (cur) {
-      cur.text += line + '\n'
-    }
-  }
-  flush()
-  return logs
-}
+/* ---- 类型定义 ---- */
+/**
+ * @typedef {Object} LogEntry
+ * @property {string} date       - 日期 (YYYY-MM-DD)
+ * @property {string} title      - 日志标题
+ * @property {string[]} tags     - 标签数组
+ * @property {string} body       - Markdown 正文
+ * @property {number} wordCount  - 字数
+ * @property {string} file       - 原始文件名
+ */
 
 /* 日志正文外链：一律新标签页打开 */
 function externalizeLogLinks(a) {
@@ -47,7 +28,7 @@ function externalizeLogLinks(a) {
   }
 }
 
-/* 动态模块：数据来自 public/log.md（由 scripts/gen-feed.mjs 合并 public/log/*.md 生成）。
+/* useLog：消费 log.jsonl（结构化 JSON Lines）
    limit > 0 时只显示最近 limit 条；不传或 0 则显示全部。 */
 export function useLog(limit = 0) {
   /* 标题轮播 */
@@ -79,7 +60,8 @@ export function useLog(limit = 0) {
     logTitleTimer = setTimeout(cycleLogTitle, logDeleting ? 40 : 90)
   }
 
-  /* 数据 */
+  /* 数据：日志列表 */
+  /** @type {import('vue').Ref<LogEntry[]>} */
   const myLogs = ref([])
   const logLoading = ref(true)
   const visibleLogs = computed(() =>
@@ -89,13 +71,11 @@ export function useLog(limit = 0) {
   async function loadLogs() {
     logLoading.value = true
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}log.md`, { cache: 'no-cache' })
-      const md = await res.text()
-      myLogs.value = parseLog(md).sort((a, b) =>
-        dateKey(b.date).localeCompare(dateKey(a.date))
-      )
+      const res = await fetch(`${import.meta.env.BASE_URL}log.jsonl`, { cache: 'no-cache' })
+      const text = await res.text()
+      myLogs.value = text.trim().split('\n').map((line) => JSON.parse(line))
     } catch (e) {
-      console.error('读取 log.md 失败：', e)
+      console.error('读取 log.jsonl 失败：', e)
       myLogs.value = []
     } finally {
       logLoading.value = false

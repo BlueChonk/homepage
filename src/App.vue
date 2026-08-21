@@ -3,11 +3,9 @@ import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
 import { ConfigProvider, theme } from 'ant-design-vue'
 import AppHeader from './components/AppHeader.vue'
 import HomeView from './views/HomeView.vue'
-import AboutView from './views/AboutView.vue'
 
 import LogView from './views/LogView.vue'
-import MusicView from './views/MusicView.vue'
-import BangumiView from './views/BangumiView.vue'
+import BlogView from './views/BlogView.vue'
 import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
@@ -23,7 +21,7 @@ function onNavigate(key) {
 }
 
 const scrollable = computed(
-  () => ['home', 'about', 'log', 'bangumi'].includes(activeView.value)
+  () => ['home', 'log', 'blog'].includes(activeView.value)
 )
 
 /* ===== 子页面 ref，用于调用 reload ===== */
@@ -115,11 +113,8 @@ onUnmounted(() => {
         </Transition>
 
         <HomeView v-if="activeView === 'home'" ref="viewRef" @navigate="onNavigate" />
-        <AboutView v-else-if="activeView === 'about'" ref="viewRef" />
-        
-        <MusicView v-else-if="activeView === 'music'" ref="viewRef" />
         <LogView v-else-if="activeView === 'log'" ref="viewRef" />
-        <BangumiView v-else-if="activeView === 'bangumi'" ref="viewRef" />
+        <BlogView v-else-if="activeView === 'blog'" ref="viewRef" />
       </div>
     </div>
   </ConfigProvider>

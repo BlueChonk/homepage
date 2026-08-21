@@ -21,8 +21,8 @@ package-lock.json
 # 脚本自动生成的清单文件（vite 启动/构建时自动生成，勿提交）
 public/album.jsonl
 public/note.jsonl
-public/log.md
-public/bangumi-config.json
+public/log.jsonl
+public/blog.jsonl
 
 # Python
 __pycache__/

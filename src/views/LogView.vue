@@ -15,14 +15,19 @@ const COLLAPSE_THRESHOLD = 300
 /* 收起后保留的高度 */
 const COLLAPSED_HEIGHT = 150
 
+/* 折叠状态：key = 日志索引，value = 是否折叠 */
+const collapsed = reactive({})
+/* 已检测过高度的日志索引 */
+const checked = reactive(new Set())
+
 /* 检测每条日志：内容超 threshold 才折叠，否则完整展示 */
 function checkCollapse() {
   nextTick(() => {
     visibleLogs.value.forEach((_, i) => {
-      if (checked.value.has(i)) return
+      if (checked.has(i)) return
       const el = document.querySelector(`[data-log-idx="${i}"] .my-log-md`)
       if (el) {
-        checked.value.add(i)
+        checked.add(i)
         // 只有内容高度超过阈值时才折叠
         collapsed[i] = el.scrollHeight > COLLAPSE_THRESHOLD
       }
@@ -70,7 +75,7 @@ watch(() => myLogs.value.length, () => checkCollapse())
               class="my-log-content"
               :class="{ collapsed: isCollapsed(i) }"
             >
-              <MarkdownPreview class="my-log-md" :source="log.text" variant="log" @md-rendered="handleRendered" />
+              <MarkdownPreview class="my-log-md" :source="log.body" variant="log" @md-rendered="handleRendered" />
             </div>
             <button
               v-if="collapsed[i]"

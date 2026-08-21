@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mergeFeeds, feedsDir } from './scripts/generate-log.mjs'
+import { buildBlog, blogDir } from './scripts/build-blog.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -78,7 +79,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // 日志(log)：把 public/log/*.md 合并为 public/log.md；构建/启动/保存时自动重生成
+    // 日志(log)：解析 public/log/*.md 的 frontmatter + 正文，生成 public/log.jsonl；构建/启动/保存时自动重生成
     {
       name: 'log:merge',
       buildStart() {
@@ -92,9 +93,22 @@ export default defineConfig({
         })
       },
     },
+    // 博客(blog)：解析 public/blog/*.md 的 frontmatter + 正文，生成 public/blog.jsonl；构建/启动/保存时自动重生成
+    {
+      name: 'blog:build',
+      buildStart() {
+        buildBlog()
+      },
+      configureServer(server) {
+        buildBlog()
+        server.watcher.add(blogDir)
+        server.watcher.on('all', (_evt, file) => {
+          if (file.startsWith(blogDir) && file.endsWith('.md')) buildBlog()
+        })
+      },
+    },
     // 音乐：前端进入音乐页面时按需请求 QQ 音乐 API，不再构建期拉取
     // 手动生成 jsonl（可选）：node scripts/parse-qq-playlist.mjs [歌单ID]
-    // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
   server: {
     host: '0.0.0.0',
