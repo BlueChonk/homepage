@@ -179,7 +179,7 @@ function openLink(href) {
         </div>
         <!-- 每日记录 -->
         <div class="dsh-daily">
-          <div class="dsh-daily-title">每日记录</div>
+          <div class="dsh-daily-title">每日用量</div>
           <div class="dsh-daily-list" :class="{ 'dsh-daily-expanded': dailyExpanded }">
             <div class="dsh-daily-item">
               <span class="dsh-daily-date">08-22 六</span>
