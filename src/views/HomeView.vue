@@ -179,11 +179,6 @@ function openLink(href) {
         </div>
         <!-- 每日用量 -->
         <div class="dsh-daily">
-          <div class="dsh-daily-header">
-            <span>日期</span>
-            <span>tokens</span>
-            <span>缓存命中率</span>
-          </div>
           <div class="dsh-daily-list" :class="{ 'dsh-daily-expanded': dailyExpanded }">
             <div class="dsh-daily-item">
               <span class="dsh-daily-date">08-22</span>
@@ -507,9 +502,14 @@ function openLink(href) {
 }
 .dsh-stat-item:nth-child(1) {
   align-items: flex-start;
+  min-width: 70px;
+}
+.dsh-stat-item:nth-child(2) {
+  flex: 1;
 }
 .dsh-stat-item:nth-child(3) {
   align-items: flex-end;
+  min-width: 45px;
 }
 .dsh-stat-num {
   font-size: 20px;
@@ -525,27 +525,6 @@ function openLink(href) {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
-}
-.dsh-daily-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin-bottom: 8px;
-}
-.dsh-daily-header span:nth-child(1) {
-  min-width: 70px;
-  text-align: left;
-}
-.dsh-daily-header span:nth-child(2) {
-  flex: 1;
-  text-align: center;
-}
-.dsh-daily-header span:nth-child(3) {
-  min-width: 45px;
-  text-align: right;
 }
 .dsh-daily-list {
   display: flex;
