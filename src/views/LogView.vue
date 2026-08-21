@@ -10,13 +10,12 @@ const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = u
 /* 暴露 reload 方法供下拉刷新调用 */
 defineExpose({ reload: loadLogs })
 
-/* ===== 折叠/展开逻辑 ===== */
-// collapsed[i]: null=未检测, true=已折叠, false=已展开（默认收起）
-const collapsed = reactive({})
-// 记录是否已检测过，避免重复
-const checked = ref(new Set())
+/* 折叠高度阈值：内容超过此高度才自动折叠 */
+const COLLAPSE_THRESHOLD = 300
+/* 收起后保留的高度 */
+const COLLAPSED_HEIGHT = 150
 
-/* 检测每条日志，全部默认收起 */
+/* 检测每条日志：内容超 threshold 才折叠，否则完整展示 */
 function checkCollapse() {
   nextTick(() => {
     visibleLogs.value.forEach((_, i) => {
@@ -24,7 +23,8 @@ function checkCollapse() {
       const el = document.querySelector(`[data-log-idx="${i}"] .my-log-md`)
       if (el) {
         checked.value.add(i)
-        collapsed[i] = true // 默认收起
+        // 只有内容高度超过阈值时才折叠
+        collapsed[i] = el.scrollHeight > COLLAPSE_THRESHOLD
       }
     })
   })
@@ -73,7 +73,7 @@ watch(() => myLogs.value.length, () => checkCollapse())
               <MarkdownPreview class="my-log-md" :source="log.text" variant="log" @md-rendered="handleRendered" />
             </div>
             <button
-              v-if="collapsed[i] !== undefined && collapsed[i] !== null"
+              v-if="collapsed[i]"
               class="my-log-expand"
               @click="toggleLog(i)"
             >
