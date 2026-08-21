@@ -1,15 +1,33 @@
-﻿<script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+<script setup>
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import PhoebePoke from '../components/PhoebePoke.vue'
 import CialloGreet from '../components/CialloGreet.vue'
 import AppFooter from '../components/AppFooter.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { useLog } from '../composables/useLog'
+import { useTheme } from '../composables/useTheme'
 
 const emit = defineEmits(['navigate'])
 function viewAllLogs() {
   emit('navigate', 'log')
 }
+
+function resolveUrl(u) {
+  if (!u) return ''
+  if (/^(https?:)?\/\//i.test(u)) return u
+  const base = import.meta.env.BASE_URL || '/'
+  return u.startsWith('/') ? base.replace(/\/$/, '') + u : u
+}
+
+const { resolved: themeResolved } = useTheme()
+const socials = computed(() => {
+  const isDark = themeResolved.value === 'dark'
+  return [
+    { icon: isDark ? '/icon/github-dark.svg' : '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
+    { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
+    { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
+  ]
+})
 
 /* 日志时间线：只显示最近 2 条 */
 const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog(2)
@@ -71,6 +89,21 @@ onUnmounted(() => {
       <div class="badge">技术二次元宅</div>
 
       <h1 class="title">Hi，我是 BlueChonk</h1>
+
+      <!-- 联系方式 -->
+      <div class="contact-bar">
+        <a
+          v-for="s in socials"
+          :key="s.label"
+          :href="s.href"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="contact-chip"
+        >
+          <img :src="resolveUrl(s.icon)" :alt="s.label" class="contact-chip-icon" />
+          <span>{{ s.label }}</span>
+        </a>
+      </div>
 
       <!-- 打字文字 + Ciallo + 菲比：一个整体 -->
       <div class="hero-unit">
@@ -250,6 +283,39 @@ onUnmounted(() => {
 }
 @keyframes blink {
   50% { opacity: 0; }
+}
+
+/* contact bar – compact row above Ciallo */
+.contact-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 18px 0 22px;
+}
+.contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.contact-chip:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.contact-chip-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.contact-chip span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
 }
 
 
