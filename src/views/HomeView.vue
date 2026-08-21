@@ -213,11 +213,6 @@ function openLink(href) {
           <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
         </div>
       </div>
-            </div>
-          </div>
-          <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
-        </div>
-      </div>
       <div
         v-for="g in toolGroups"
         :key="g.title"
