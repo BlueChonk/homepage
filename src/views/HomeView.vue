@@ -82,32 +82,22 @@ onUnmounted(() => {
 /* About 工具组 */
 const toolGroups = [
   {
-    title: 'AI 打工团',
+    title: '代码全家桶',
     items: [
-      { name: 'DSH', desc: 'DeepSeek Harness，智能体运行时框架', icon: '/icon/deepseek.svg', href: 'https://www.deepseek.com/harness/' },
-      { name: 'Codex', desc: '主力生产力，写码如喝水，摸鱼终结者', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
-    ],
-  },
-  {
-    title: '写码装备',
-    items: [
-      { name: 'VS Code', desc: '插件比代码还多的编辑器', icon: '/icon/vscode.ico', href: 'https://code.visualstudio.com/' },
-      { name: 'Git', desc: '后悔药批发商', icon: '/icon/git.ico', href: 'https://git-scm.com/' },
-      { name: 'Apifox', desc: '前后端对线的和事佬', icon: '/icon/apifox.ico', href: 'https://apifox.com/' },
+      { name: 'DSH', desc: '吃白饭的蓝色大肥鱼', icon: '/icon/deepseek.svg', href: 'https://www.deepseek.com/harness/' },
+      { name: 'OpenCode', desc: '开源编码智能体', icon: '/icon/opencode.svg', href: 'https://opencode.ai/zh' },
+      { name: 'Codex', desc: '脑子里全是哥布林', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
+      { name: 'VS Code', desc: '装完插件重如泰山', icon: '/icon/vscode.ico', href: 'https://code.visualstudio.com/' },
+      { name: 'Git', desc: '回滚失败就原地升天', icon: '/icon/git.ico', href: 'https://git-scm.com/' },
+      { name: 'DBX', desc: '七十种库一把全拿捏', icon: '/icon/dbx.png', href: 'https://dbxio.com/cn' },
     ],
   },
   {
     title: '环境搬家队',
     items: [
-      { name: 'Docker', desc: '一键打包，走哪跑哪', icon: '/icon/docker.ico', href: 'https://www.docker.com/' },
-      { name: 'Miniconda', desc: '给每个项目单独开间房', icon: '/icon/miniconda.ico', href: 'https://docs.anaconda.net.cn/miniconda/' },
-      { name: 'Ubuntu', desc: '命令行钉子户', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
-    ],
-  },
-  {
-    title: '数据库观光团',
-    items: [
-      { name: 'DBX', desc: '一拖七十，数据库大管家', icon: '/icon/dbx.png', href: 'https://dbxio.com/cn' },
+      { name: 'Docker', desc: '打包一时爽排错火葬场', icon: '/icon/docker.ico', href: 'https://www.docker.com/' },
+      { name: 'Miniconda', desc: '房间越开越多记不住', icon: '/icon/miniconda.ico', href: 'https://docs.anaconda.net.cn/miniconda/' },
+      { name: 'Ubuntu', desc: '服务器常驻老油条', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
     ],
   },
 ]
@@ -211,7 +201,7 @@ function openLink(href) {
     <section class="my-log">
       <div class="my-log-head">
         <h2 class="my-log-title">
-          {{ logTitle }}
+          Log
           <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
         </h2>
         <button class="my-log-toggle" type="button" @click="viewAllLogs">ALL</button>
@@ -538,6 +528,8 @@ function openLink(href) {
   font-size: 19px;
   font-weight: 600;
   color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
   display: inline-flex;
   align-items: center;
   gap: 8px;

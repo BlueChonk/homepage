@@ -31,33 +31,14 @@ function externalizeLogLinks(a) {
 /* useLog：消费 log.jsonl（结构化 JSON Lines）
    limit > 0 时只显示最近 limit 条；不传或 0 则显示全部。 */
 export function useLog(limit = 0) {
-  /* 标题轮播 */
-  const logTitles = ['Log', 'Logs', 'Updates', 'Posts']
-  const logTitle = ref('Log')
+  /* 标题闪动 */
+  const logTitle = ref('LOG')
   let logTitleTimer = null
-  let logTitleIdx = 0
-  let logCharIdx = 0
-  let logDeleting = false
+  let logVisible = true
 
-  function cycleLogTitle() {
-    const cur = logTitles[logTitleIdx]
-    if (!logDeleting) {
-      logCharIdx++
-      logTitle.value = cur.slice(0, logCharIdx)
-      if (logCharIdx >= cur.length) {
-        logDeleting = true
-        logTitleTimer = setTimeout(cycleLogTitle, 1800)
-        return
-      }
-    } else {
-      logCharIdx--
-      logTitle.value = cur.slice(0, logCharIdx)
-      if (logCharIdx <= 0) {
-        logDeleting = false
-        logTitleIdx = (logTitleIdx + 1) % logTitles.length
-      }
-    }
-    logTitleTimer = setTimeout(cycleLogTitle, logDeleting ? 40 : 90)
+  function blinkLogTitle() {
+    logVisible = !logVisible
+    logTitleTimer = setTimeout(blinkLogTitle, 800)
   }
 
   /* 数据：日志列表 */
@@ -83,7 +64,7 @@ export function useLog(limit = 0) {
   }
 
   onMounted(() => {
-    logTitleTimer = setTimeout(cycleLogTitle, 600)
+    logTitleTimer = setTimeout(blinkLogTitle, 600)
     loadLogs()
   })
 
@@ -97,5 +78,5 @@ export function useLog(limit = 0) {
     root.querySelectorAll('a[href]').forEach(externalizeLogLinks)
   }
 
-  return { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs }
+  return { logTitle, logVisible, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs }
 }

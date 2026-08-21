@@ -33,33 +33,14 @@ function externalizeLogLinks(a) {
 
 /* useBlog：消费 blog.jsonl（结构化 JSON Lines） */
 export function useBlog() {
-  /* 标题轮播 */
-  const blogTitles = ['Blog', 'Posts', 'Articles', 'Writes']
-  const blogTitle = ref('Blog')
+  /* 标题闪动 */
+  const blogTitle = ref('BLOG')
   let blogTitleTimer = null
-  let blogTitleIdx = 0
-  let blogCharIdx = 0
-  let blogDeleting = false
+  let blogVisible = true
 
-  function cycleBlogTitle() {
-    const cur = blogTitles[blogTitleIdx]
-    if (!blogDeleting) {
-      blogCharIdx++
-      blogTitle.value = cur.slice(0, blogCharIdx)
-      if (blogCharIdx >= cur.length) {
-        blogDeleting = true
-        blogTitleTimer = setTimeout(cycleBlogTitle, 1800)
-        return
-      }
-    } else {
-      blogCharIdx--
-      blogTitle.value = cur.slice(0, blogCharIdx)
-      if (blogCharIdx <= 0) {
-        blogDeleting = false
-        blogTitleIdx = (blogTitleIdx + 1) % blogTitles.length
-      }
-    }
-    blogTitleTimer = setTimeout(cycleBlogTitle, blogDeleting ? 40 : 90)
+  function blinkBlogTitle() {
+    blogVisible = !blogVisible
+    blogTitleTimer = setTimeout(blinkBlogTitle, 800)
   }
 
   /* 数据：博客文章列表 */
@@ -95,7 +76,7 @@ export function useBlog() {
   }
 
   onMounted(() => {
-    blogTitleTimer = setTimeout(cycleBlogTitle, 600)
+    blogTitleTimer = setTimeout(blinkBlogTitle, 600)
     loadPosts()
   })
 
@@ -115,6 +96,7 @@ export function useBlog() {
 
   return {
     blogTitle,
+    blogVisible,
     posts,
     blogLoading,
     visiblePosts,

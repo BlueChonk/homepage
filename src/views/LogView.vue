@@ -5,7 +5,7 @@ import AppFooter from '../components/AppFooter.vue'
 import { useLog } from '../composables/useLog'
 
 /* 全部日志，不限制条数 */
-const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog()
+const { logTitle, logVisible, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog()
 
 /* 暴露 reload 方法供下拉刷新调用 */
 defineExpose({ reload: loadLogs })
@@ -57,7 +57,7 @@ watch(() => myLogs.value.length, () => checkCollapse())
     <section class="my-log">
       <div class="my-log-head">
         <h2 class="my-log-title">
-          {{ logTitle }}
+          <span :style="{ opacity: logVisible ? 1 : 0 }">{{ logTitle }}</span>
           <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
         </h2>
       </div>
@@ -105,6 +105,8 @@ watch(() => myLogs.value.length, () => checkCollapse())
   width: 100%;
   padding-top: 40px;
 }
+
+
 
 /* 日志内容折叠容器 */
 .my-log-content {

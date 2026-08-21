@@ -6,6 +6,7 @@ import HomeView from './views/HomeView.vue'
 
 import LogView from './views/LogView.vue'
 import BlogView from './views/BlogView.vue'
+import LinkView from './views/LinkView.vue'
 import { useTheme } from './composables/useTheme'
 
 const { resolved: themeResolved } = useTheme()
@@ -20,7 +21,7 @@ function onNavigate(key) {
 }
 
 const scrollable = computed(
-  () => ['home', 'log', 'blog'].includes(activeView.value)
+  () => ['home', 'log', 'blog', 'link'].includes(activeView.value)
 )
 
 /* ===== 子页面 ref，用于调用 reload ===== */
@@ -112,6 +113,7 @@ onUnmounted(() => {
         <HomeView v-if="activeView === 'home'" ref="viewRef" @navigate="onNavigate" />
         <LogView v-else-if="activeView === 'log'" ref="viewRef" />
         <BlogView v-else-if="activeView === 'blog'" ref="viewRef" />
+        <LinkView v-else-if="activeView === 'link'" ref="viewRef" />
       </div>
     </div>
   </ConfigProvider>

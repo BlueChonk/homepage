@@ -8,8 +8,9 @@ const props = defineProps({
 const emit = defineEmits(['navigate'])
 
 const items = [
-  { key: 'log', label: 'Log' },
   { key: 'blog', label: 'Blog' },
+  { key: 'log', label: 'Log' },
+  { key: 'link', label: 'Link' },
 ]
 
 function onClick({ key }) {
