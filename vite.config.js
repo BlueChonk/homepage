@@ -98,4 +98,7 @@ export default defineConfig({
     // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
   base: './',
+  optimizeDeps: {
+    exclude: ['ant-design-vue/dist/reset.css'],
+  },
 })
