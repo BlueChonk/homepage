@@ -44,14 +44,12 @@ const playModeLabel = computed(() => {
 /* ---- 播放列表 ---- */
 const listOpen = ref(false)
 
-/* ---- 音量 ---- */
-const volOpen = ref(false)
+/* ---- 音量控制 ---- */
 const volDragging = ref(false)
-const volTrackRef = ref(null)
 
 function onVolSeek(e) {
   const rect = e.currentTarget.getBoundingClientRect()
-  const ratio = 1 - (e.clientY - rect.top) / rect.height
+  const ratio = (e.clientX - rect.left) / rect.width
   setVolume(Math.max(0, Math.min(1, ratio)))
 }
 
@@ -65,10 +63,10 @@ function onVolDragStart(e) {
 
 function onVolDragMove(e) {
   if (!volDragging.value) return
-  const track = volTrackRef.value
-  if (!track) return
-  const rect = track.getBoundingClientRect()
-  const ratio = 1 - (e.clientY - rect.top) / rect.height
+  const slider = document.querySelector('.mini-vol-slider')
+  if (!slider) return
+  const rect = slider.getBoundingClientRect()
+  const ratio = (e.clientX - rect.left) / rect.width
   setVolume(Math.max(0, Math.min(1, ratio)))
 }
 
@@ -124,7 +122,7 @@ const shownTime = computed(() => {
 })
 
 onMounted(() => {
-  setVolume(1)
+  setVolume(1)  // 默认音量 100%
   load()
   unsubProgress = onProgress((pct) => {
     if (!scrubbing.value) paintBar(pct)
@@ -226,19 +224,18 @@ onUnmounted(() => {
             <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h13v2H3zm0 5h13v2H3zm0 5h10v2H3z" /></svg>
           </button>
           <div class="mini-vol-wrap">
-            <button class="mini-btn" @click.stop="volOpen = !volOpen" :title="volume === 0 ? '取消静音' : '音量'">
+            <button class="mini-btn mini-vol-btn" @click="setVolume(volume === 0 ? 1 : 0)" :title="volume === 0 ? '取消静音' : '静音'">
               <svg v-if="volume === 0" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4L15.2 10.6 12.5 7.9 11 9.3l2.7 2.7L11 14.7l1.5 1.4 2.7-2.7 2.7 2.7 1.4-1.4z" /></svg>
               <svg v-else-if="volume < 0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12z" /></svg>
               <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 00-2-3.5v7A4 4 0 0016 12zm-2-8.2v2.1a6 6 0 010 12.2v2.1A8 8 0 0014 3.8z" /></svg>
             </button>
-            <div v-if="volOpen" class="vol-backdrop" @click="volOpen = false"></div>
-            <div v-if="volOpen" class="mini-vol-pop" @pointerdown.stop>
-              <div ref="volTrackRef" class="mini-vol-track" @pointerdown.prevent="onVolDragStart">
-                <div class="mini-vol-fill" :style="{ height: volume * 100 + '%' }"></div>
-                <div class="mini-vol-knob" :style="{ bottom: 'calc(' + volume * 100 + '% - 6px)' }"></div>
+            <div class="mini-vol-slider" @pointerdown="onVolDragStart">
+              <div class="mini-vol-track">
+                <div class="mini-vol-fill" :style="{ width: volume * 100 + '%' }"></div>
+                <div class="mini-vol-knob" :style="{ left: 'calc(' + volume * 100 + '% - 5px)' }"></div>
               </div>
-              <span class="mini-vol-pct">{{ Math.round(volume * 100) }}</span>
             </div>
+            <span class="mini-vol-num">{{ Math.round(volume * 100) }}</span>
           </div>
         </div>
       </div>
@@ -431,61 +428,56 @@ onUnmounted(() => {
   height: 14px;
 }
 
-/* 音量 */
+/* 音量控制 */
 .mini-vol-wrap {
-  position: relative;
-}
-.vol-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 89;
-}
-.mini-vol-pop {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 36px;
-  padding: 8px 0 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 6px;
-  z-index: 90;
 }
-.mini-vol-track {
+.mini-vol-btn {
+  flex: 0 0 auto;
+}
+.mini-vol-slider {
   position: relative;
-  width: 4px;
-  height: 60px;
+  width: 60px;
+  height: 4px;
   border-radius: 999px;
   background: var(--border-light);
   cursor: pointer;
+  touch-action: none;
+  flex: 0 0 auto;
+}
+.mini-vol-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
 }
 .mini-vol-fill {
   position: absolute;
   left: 0;
-  right: 0;
+  top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
   border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
 }
 .mini-vol-knob {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: var(--surface);
   border: 2px solid var(--accent);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.mini-vol-pct {
-  font-size: 9px;
+.mini-vol-num {
+  font-size: 10px;
   color: var(--text-tertiary);
+  min-width: 24px;
+  text-align: center;
+  flex: 0 0 auto;
 }
 
 /* 空状态 */
