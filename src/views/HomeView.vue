@@ -585,20 +585,15 @@ function openLink(href) {
 .info-card {
   background: transparent !important;
   border: 1px solid transparent !important;
+  border-radius: 14px !important;
   transition: background 0.15s, border-color 0.15s;
 }
 .info-card:hover {
   background: var(--surface) !important;
   border-color: var(--border) !important;
 }
-  border-radius: 14px !important;
-}
 .info-card :deep(.ant-card-body) {
   padding: 16px 18px;
-}
-.info-card:hover {
-  border-color: var(--accent-border) !important;
-  background: var(--accent-soft) !important;
 }
 .info-card.is-link {
   cursor: pointer;
