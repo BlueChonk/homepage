@@ -162,6 +162,7 @@ function openLink(href) {
       <h2 class="block-title">Tools</h2>
       <!-- DSH 使用统计 -->
       <div class="dsh-stats">
+        <div class="dsh-stats-title">DSH用量</div>
         <div class="dsh-stats-grid">
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">5</span>
@@ -488,6 +489,7 @@ function openLink(href) {
   font-weight: 600;
   color: var(--accent);
   margin-bottom: 12px;
+  text-align: left;
 }
 .dsh-stats-grid {
   display: grid;
@@ -561,7 +563,7 @@ function openLink(href) {
   color: var(--text);
   font-weight: 500;
   flex: 1;
-  text-align: right;
+  text-align: center;
 }
 .dsh-daily-cache {
   color: var(--accent);
