@@ -104,6 +104,7 @@ const toolGroups = [
 ]
 
 const iconFailed = ref({})
+const dailyExpanded = ref(false)
 function onIconError(name) {
   iconFailed.value = { ...iconFailed.value, [name]: true }
 }
@@ -176,17 +177,13 @@ function openLink(href) {
           </div>
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">508M</span>
-            <span class="dsh-stat-label">本月 tokens</span>
-          </div>
-          <div class="dsh-stat-item">
-            <span class="dsh-stat-num">40.2M</span>
-            <span class="dsh-stat-label">今日 tokens</span>
+            <span class="dsh-stat-label">总 tokens</span>
           </div>
         </div>
-        <!-- 最近 14 天 -->
+        <!-- 每日记录 -->
         <div class="dsh-daily">
-          <div class="dsh-daily-title">最近 5 天</div>
-          <div class="dsh-daily-list">
+          <div class="dsh-daily-title">每日记录</div>
+          <div class="dsh-daily-list" :class="{ 'dsh-daily-expanded': dailyExpanded }">
             <div class="dsh-daily-item">
               <span class="dsh-daily-date">08-22 六</span>
               <span class="dsh-daily-tokens">40,244,191</span>
@@ -213,6 +210,7 @@ function openLink(href) {
               <span class="dsh-daily-cache">81.9%</span>
             </div>
           </div>
+          <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
         </div>
       </div>
     </section>
@@ -539,6 +537,23 @@ function openLink(href) {
   justify-content: space-between;
   font-size: 13px;
   padding: 4px 0;
+}
+/* 超过 5 天自动折叠 */
+.dsh-daily-item:nth-child(n+6) {
+  display: none;
+}
+.dsh-daily-expanded .dsh-daily-item:nth-child(n+6) {
+  display: flex;
+}
+.dsh-daily-toggle {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.dsh-daily-toggle:hover {
+  text-decoration: underline;
 }
 .dsh-daily-date {
   color: var(--text-secondary);
