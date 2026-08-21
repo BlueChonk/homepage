@@ -466,6 +466,11 @@ function openLink(href) {
 }
 
 /* about section */
+.about-section {
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 12px;
+  padding: 20px 22px;
+}
 .about-intro {
   font-size: 15px;
   line-height: 1.8;
@@ -672,6 +677,9 @@ function openLink(href) {
   max-width: 880px;
   text-align: left;
   margin-top: 36px;
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 12px;
+  padding: 20px 22px;
 }
 .my-log-head {
   display: flex;
