@@ -162,7 +162,7 @@ function openLink(href) {
       <h2 class="block-title">Tools</h2>
       <!-- DSH 使用统计 -->
       <div class="dsh-stats">
-        <div class="dsh-stats-title">DSH用量</div>
+        <div class="dsh-stats-title">DSH 使用统计</div>
         <div class="dsh-stats-grid">
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">5</span>
@@ -483,6 +483,7 @@ function openLink(href) {
   border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   border-radius: 12px;
   padding: 16px 20px;
+  margin-bottom: 18px;
 }
 .dsh-stats-title {
   font-size: 13px;
@@ -492,8 +493,9 @@ function openLink(href) {
   text-align: left;
 }
 .dsh-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 .dsh-stat-item {
@@ -501,6 +503,13 @@ function openLink(href) {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  flex: 1;
+}
+.dsh-stat-item:nth-child(1) {
+  align-items: flex-start;
+}
+.dsh-stat-item:nth-child(3) {
+  align-items: flex-end;
 }
 .dsh-stat-num {
   font-size: 20px;
@@ -525,6 +534,18 @@ function openLink(href) {
   font-weight: 600;
   color: var(--text-tertiary);
   margin-bottom: 8px;
+}
+.dsh-daily-header span:nth-child(1) {
+  min-width: 70px;
+  text-align: left;
+}
+.dsh-daily-header span:nth-child(2) {
+  flex: 1;
+  text-align: center;
+}
+.dsh-daily-header span:nth-child(3) {
+  min-width: 45px;
+  text-align: right;
 }
 .dsh-daily-list {
   display: flex;
@@ -556,8 +577,9 @@ function openLink(href) {
   text-decoration: underline;
 }
 .dsh-daily-date {
-  color: var(--text-secondary);
   min-width: 70px;
+  text-align: left;
+  color: var(--text-secondary);
 }
 .dsh-daily-tokens {
   color: var(--text);
@@ -566,10 +588,10 @@ function openLink(href) {
   text-align: center;
 }
 .dsh-daily-cache {
-  color: var(--accent);
-  font-size: 12px;
   min-width: 45px;
   text-align: right;
+  color: var(--accent);
+  font-size: 12px;
 }
 
 /* tools */
