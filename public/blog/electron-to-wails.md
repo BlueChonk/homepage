@@ -2,6 +2,7 @@
 title: 从 Electron 到 Wails：桌面应用框架选型实录
 date: 2026-08-14
 category: 桌面开发
+top: true
 tags: [electron, wails, tauri, rust, desktop]
 summary: 从 Electron 的 149MB 到 Wails 的 58MB，记录桌面音乐播放器 musicgrove 的框架迁移全过程。
 ---

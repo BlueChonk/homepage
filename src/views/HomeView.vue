@@ -42,7 +42,6 @@ defineExpose({ reload })
 const phrases = [
   '热爱二次元的技术宅',
   '前端 / 全栈开发者',
-  '美食与摄影爱好者',
   '开源社区贡献者',
 ]
 const typed = ref('')
@@ -97,6 +96,8 @@ const toolGroups = [
     items: [
       { name: 'Docker', desc: '打包一时爽排错火葬场', icon: '/icon/docker.ico', href: 'https://www.docker.com/' },
       { name: 'Miniconda', desc: '房间越开越多记不住', icon: '/icon/miniconda.ico', href: 'https://docs.anaconda.net.cn/miniconda/' },
+      { name: 'uv', desc: 'Rust 写的飞快包管理器', icon: '/icon/uv.svg', href: 'https://uv.doczh.com/' },
+      { name: 'Node.js', desc: '前端后端一把梭', icon: '/icon/nodejs.svg', href: 'https://nodejs.org/' },
       { name: 'Ubuntu', desc: '服务器常驻老油条', icon: '/icon/ubuntu.png', href: 'https://ubuntu.com/' },
     ],
   },
@@ -151,7 +152,7 @@ function openLink(href) {
     <section class="block about-section">
       <h2 class="block-title">About</h2>
       <p class="about-intro">
-        你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具，也喜欢把生活里的美食和光影记录下来。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
+        你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
       </p>
     </section>
 

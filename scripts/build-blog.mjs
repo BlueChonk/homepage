@@ -2,7 +2,7 @@
  * 将 public/blog/ 下每个 *.md 解析 frontmatter + 正文，
  * 输出为 public/blog.jsonl（JSON Lines），供前端运行时直接消费。
  *
- * 每行结构：{ slug, title, date, category, tags, summary, body, wordCount, file }
+ * 每行结构：{ slug, title, date, category, tags, summary, top, body, wordCount, file }
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -21,6 +21,7 @@ const BlogSchema = z.object({
   tags: z.array(z.string()).default([]),
   summary: z.string().default(''),
   draft: z.boolean().default(false),
+  top: z.boolean().default(false),
 })
 
 /* ---- 极简 YAML frontmatter 解析 ---- */
@@ -89,6 +90,7 @@ export function buildBlog() {
           category: data.category,
           tags: data.tags,
           summary: data.summary,
+          top: data.top,
           body: body.trim(),
           wordCount: body.trim().replace(/\s/g, '').length,
           file: f,

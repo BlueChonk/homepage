@@ -459,6 +459,34 @@ body {
   font-size: 13px;
   line-height: 1.5;
 }
+/* 表格：GitHub 风 —— 表头底色 + 细边框 + 斑马纹，窄屏横向滚动 */
+.my-log-md .md-render-inner .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.9em 0;
+}
+.my-log-md .md-render-inner table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93em;
+  line-height: 1.6;
+}
+.my-log-md .md-render-inner th,
+.my-log-md .md-render-inner td {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.my-log-md .md-render-inner th {
+  background: var(--bg-soft);
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.my-log-md .md-render-inner tbody tr:nth-child(2n) {
+  background: color-mix(in srgb, var(--bg-soft) 45%, transparent);
+}
 .my-log-loading,
 .my-log-empty {
   padding: 10px 0;

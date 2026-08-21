@@ -9,6 +9,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
  * @property {string} category   - 分类
  * @property {string[]} tags     - 标签数组
  * @property {string} summary    - 摘要
+ * @property {boolean} top       - 是否置顶
  * @property {string} body       - Markdown 正文
  * @property {number} wordCount  - 字数
  * @property {string} file       - 原始文件名
@@ -66,7 +67,13 @@ export function useBlog() {
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}blog.jsonl`, { cache: 'no-cache' })
       const text = await res.text()
-      posts.value = text.trim().split('\n').map((line) => JSON.parse(line))
+      const list = text.trim().split('\n').map((line) => JSON.parse(line))
+      /* 排序：置顶优先，其余按日期倒序 */
+      list.sort((a, b) => {
+        if (!!b.top !== !!a.top) return (b.top ? 1 : 0) - (a.top ? 1 : 0)
+        return String(b.date).localeCompare(String(a.date))
+      })
+      posts.value = list
     } catch (e) {
       console.error('读取 blog.jsonl 失败：', e)
       posts.value = []

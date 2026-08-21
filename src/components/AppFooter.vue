@@ -10,8 +10,10 @@
 .app-footer {
   flex: 0 0 auto;
   width: 100%;
-  margin-top: 40px;
-  padding: 0 24px calc(40px + env(safe-area-inset-bottom));
+  /* sticky footer：auto 外边距吸收上方全部剩余空间，内容不足一屏时页脚沉底；
+     原 margin-top: 40px 的间距转入 padding-top，内容超出一屏时间距保持不变 */
+  margin-top: auto;
+  padding: 40px 24px calc(40px + env(safe-area-inset-bottom));
   text-align: center;
 }
 .app-footer-divider {
@@ -31,8 +33,7 @@
 
 @media (max-width: 520px) {
   .app-footer {
-    margin-top: 28px;
-    padding: 0 16px calc(32px + env(safe-area-inset-bottom));
+    padding: 28px 16px calc(32px + env(safe-area-inset-bottom));
   }
   .app-footer-divider {
     margin-bottom: 14px;

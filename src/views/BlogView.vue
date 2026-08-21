@@ -1,7 +1,18 @@
 <script setup>
+import { ref } from 'vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { useBlog } from '../composables/useBlog'
+
+/* 卡片内展开/收起：默认只显示摘要，slug 集合记录已展开的文章 */
+const expanded = ref(new Set())
+function togglePost(slug) {
+  const next = new Set(expanded.value)
+  if (next.has(slug)) next.delete(slug)
+  else next.add(slug)
+  expanded.value = next
+}
+const isExpanded = (slug) => expanded.value.has(slug)
 
 const {
   blogTitle,
@@ -23,6 +34,11 @@ function formatDate(dateStr) {
   if (!dateStr) return ''
   const m = String(dateStr).match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
   return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : dateStr
+}
+
+/* 阅读时长估算：中文约 400 字/分钟，不足 1 分钟按 1 分钟计 */
+function readMinutes(wordCount) {
+  return Math.max(1, Math.round((wordCount || 0) / 400))
 }
 </script>
 
@@ -52,21 +68,45 @@ function formatDate(dateStr) {
       <ul class="blog-list">
         <li v-for="post in filteredPosts" :key="post.slug" class="blog-item">
           <div class="blog-item-head">
-            <h2 class="blog-item-title">{{ post.title }}</h2>
+            <h2 class="blog-item-title">
+              <span v-if="post.top" class="blog-item-pin">置顶</span>
+              {{ post.title }}
+            </h2>
             <div class="blog-item-meta">
               <span class="blog-item-date">{{ formatDate(post.date) }}</span>
               <span v-if="post.category" class="blog-item-cat">{{ post.category }}</span>
+              <span v-if="post.wordCount" class="blog-item-time">约 {{ readMinutes(post.wordCount) }} 分钟</span>
             </div>
           </div>
 
           <p v-if="post.summary" class="blog-item-summary">{{ post.summary }}</p>
 
-          <div class="blog-item-body">
-            <MarkdownPreview class="blog-md" :source="post.body" variant="log" @md-rendered="onBlogRendered" />
+          <!-- 全文懒渲染：展开时才挂载 MarkdownPreview，列表页不为每篇跑高亮 -->
+          <div v-if="isExpanded(post.slug)" class="blog-item-body">
+            <MarkdownPreview class="my-log-md" :source="post.body" variant="log" @md-rendered="onBlogRendered" />
           </div>
 
-          <div v-if="post.tags?.length" class="blog-item-tags">
-            <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
+          <div class="blog-item-foot">
+            <button
+              type="button"
+              class="blog-toggle"
+              :aria-expanded="isExpanded(post.slug)"
+              @click="togglePost(post.slug)"
+            >
+              {{ isExpanded(post.slug) ? '收起' : '阅读全文' }}
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                aria-hidden="true"
+                :class="{ open: isExpanded(post.slug) }"
+              >
+                <path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z" />
+              </svg>
+            </button>
+            <div v-if="post.tags?.length" class="blog-item-tags">
+              <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
+            </div>
           </div>
         </li>
 
@@ -149,6 +189,18 @@ function formatDate(dateStr) {
   margin: 0 0 6px;
   color: var(--text);
 }
+.blog-item-pin {
+  display: inline-block;
+  vertical-align: 3px;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .blog-item-meta {
   display: flex;
   align-items: center;
@@ -169,15 +221,50 @@ function formatDate(dateStr) {
   color: var(--text-secondary);
   margin: 0 0 12px;
   line-height: 1.6;
+  /* 摘要最多两行，保证卡片高度整齐 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .blog-item-body {
   margin-top: 12px;
+}
+
+/* 底部行：展开/收起 + 标签 */
+.blog-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+.blog-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.blog-toggle:hover {
+  color: var(--accent-strong);
+}
+.blog-toggle svg {
+  transition: transform 0.2s ease;
+}
+.blog-toggle svg.open {
+  transform: rotate(180deg);
 }
 .blog-item-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 16px;
 }
 .tag {
   font-size: 11px;
