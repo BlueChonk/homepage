@@ -5,7 +5,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { extractTitle, countWords, extractMeta } from './scripts/md-meta.mjs'
 import { mergeFeeds, feedsDir } from './scripts/gen-feed.mjs'
-import { syncPlaylist } from './scripts/parse-qq-playlist.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -80,16 +79,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // QQ音乐歌单：dev 启动 / 构建时自动拉取歌单写入 public/music.jsonl
-    {
-      name: 'qq-music:sync',
-      async buildStart() {
-        await syncQQPlaylist()
-      },
-      configureServer() {
-        syncQQPlaylist()
-      },
-    },
     // 日志(log)：把 public/log/*.md 合并为 public/log.md；构建/启动/保存时自动重生成
     {
       name: 'log:merge',
@@ -104,8 +93,12 @@ export default defineConfig({
         })
       },
     },
-    // 音乐：已迁移至 APlayer + Meting API（QQ 音乐），前端直接请求公共 API
+    // 音乐：前端进入音乐页面时按需请求 QQ 音乐 API，不再构建期拉取
+    // 手动生成 jsonl（可选）：node scripts/parse-qq-playlist.mjs [歌单ID]
     // Bangumi 收藏：前端进入页面时直接请求 api.bgm.tv 公开收藏接口
   ],
   base: './',
+  optimizeDeps: {
+    exclude: ['ant-design-vue/dist/reset.css'],
+  },
 })
