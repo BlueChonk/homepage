@@ -492,24 +492,26 @@ function openLink(href) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: relative;
 }
 .dsh-stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  flex: 1;
 }
 .dsh-stat-item:nth-child(1) {
   align-items: flex-start;
-  min-width: 70px;
+  flex-shrink: 0;
 }
 .dsh-stat-item:nth-child(2) {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .dsh-stat-item:nth-child(3) {
   align-items: flex-end;
-  min-width: 45px;
+  flex-shrink: 0;
 }
 .dsh-stat-num {
   font-size: 20px;
@@ -537,6 +539,7 @@ function openLink(href) {
   justify-content: space-between;
   font-size: 13px;
   padding: 4px 0;
+  position: relative;
 }
 /* 超过 3 天自动折叠 */
 .dsh-daily-item:nth-child(n+4) {
@@ -556,18 +559,18 @@ function openLink(href) {
   text-decoration: underline;
 }
 .dsh-daily-date {
-  min-width: 70px;
-  text-align: left;
+  flex-shrink: 0;
   color: var(--text-secondary);
 }
 .dsh-daily-tokens {
   color: var(--text);
   font-weight: 500;
-  flex: 1;
-  text-align: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .dsh-daily-cache {
-  min-width: 45px;
+  flex-shrink: 0;
   text-align: right;
   color: var(--accent);
   font-size: 12px;
