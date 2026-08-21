@@ -50,6 +50,10 @@ export function useLink() {
           date: '2026-08-15',
           body: '## Resources Link\n\n- [MDN](https://developer.mozilla.org) — Web 文档\n- [Vue.js](https://vuejs.org) — 前端框架\n- [Rust](https://www.rust-lang.org) — 系统编程\n- [掘金](https://juejin.cn) — 技术社区',
         },
+        {
+          date: '2026-08-23',
+          body: '## Game Link\n\n- [TouchGal](https://www.touchgal.ink) — 一站式 Galgame 文化社区\n- [蜜柑计划](https://mikanime.tv) — Mikan Project 动漫 RSS 订阅下载\n- [盘链](https://pinglian.lol/all-videos.php?type=30) — 影片资源分享\n- [稻荷GAL](https://inarigal.net) — 免费 Galgame 资源下载分享社区\n- [AI Hobbyist](https://res.acgnai.top) — AI 游戏资源库',
+        },
       ]
     } catch (e) {
       console.error('加载链接列表失败：', e)

@@ -23,8 +23,6 @@ function formatCount(n) {
       </div>
       <ul class="my-log-list">
         <li v-for="repo in projects" :key="repo.name" class="my-log-item">
-          <span class="my-log-time">{{ repo.lang || '—' }}</span>
-          <span class="my-log-dash" aria-hidden="true">──</span>
           <div class="my-log-body">
             <a :href="repo.url" target="_blank" rel="noopener noreferrer" class="project-link">
               {{ repo.name }}
