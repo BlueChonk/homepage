@@ -150,11 +150,13 @@ function openLink(href) {
     </section>
 
     <!-- About 介绍 -->
-    <section class="block about-section">
+    <section class="block">
       <h2 class="block-title">About</h2>
-      <p class="about-intro">
-        你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
-      </p>
+      <div class="about-box">
+        <p class="about-intro">
+          你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
+        </p>
+      </div>
     </section>
 
     <!-- Tools -->
@@ -248,28 +250,28 @@ function openLink(href) {
       </div>
     </section>
 
-    <!-- Log 动态时间线（最近 2 条） -->
-    <section class="my-log">
-      <div class="my-log-head">
-        <h2 class="my-log-title">
-          Log
-          <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span>
-        </h2>
-        <button class="my-log-toggle" type="button" @click="viewAllLogs">ALL</button>
+    <!-- Log 动态时间线 -->
+    <section class="block">
+      <h2 class="block-title">Log</h2>
+      <div class="log-box">
+        <div class="my-log-head">
+          <span class="my-log-subtitle">最近 2 条</span>
+          <button class="my-log-toggle" type="button" @click="viewAllLogs">ALL</button>
+        </div>
+        <ul class="my-log-list">
+          <li v-for="(log, i) in visibleLogs" :key="i" class="my-log-item">
+            <span class="my-log-time">{{ log.date }}</span>
+            <span class="my-log-dash" aria-hidden="true">──</span>
+            <div class="my-log-body">
+              <MarkdownPreview class="my-log-md" :source="log.body" variant="log" @md-rendered="onLogRendered" />
+            </div>
+          </li>
+          <li v-if="!logLoading && myLogs.length === 0" class="my-log-empty">
+            暂无日志
+          </li>
+        </ul>
+        <p v-show="logLoading" class="my-log-loading">加载中…</p>
       </div>
-      <ul class="my-log-list">
-        <li v-for="(log, i) in visibleLogs" :key="i" class="my-log-item">
-          <span class="my-log-time">{{ log.date }}</span>
-          <span class="my-log-dash" aria-hidden="true">──</span>
-          <div class="my-log-body">
-            <MarkdownPreview class="my-log-md" :source="log.body" variant="log" @md-rendered="onLogRendered" />
-          </div>
-        </li>
-        <li v-if="!logLoading && myLogs.length === 0" class="my-log-empty">
-          暂无日志
-        </li>
-      </ul>
-      <p v-show="logLoading" class="my-log-loading">加载中…</p>
     </section>
 
     <AppFooter />
@@ -466,7 +468,7 @@ function openLink(href) {
 }
 
 /* about section */
-.about-section {
+.about-box {
   border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   border-radius: 12px;
   padding: 20px 22px;
@@ -475,7 +477,14 @@ function openLink(href) {
   font-size: 15px;
   line-height: 1.8;
   color: var(--text-secondary);
-  margin: 0 0 16px;
+  margin: 0;
+}
+
+/* Log */
+.log-box {
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 12px;
+  padding: 20px 22px;
 }
 
 .dsh-stats {
@@ -593,10 +602,11 @@ function openLink(href) {
   margin-bottom: 0;
 }
 .group-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--accent);
-  margin: 0 0 16px;
+  margin: 0 0 12px;
+  text-align: left;
 }
 .info-grid {
   display: grid;
@@ -671,15 +681,11 @@ function openLink(href) {
   text-overflow: ellipsis;
 }
 
-/* Log */
-.my-log {
-  width: 100%;
-  max-width: 880px;
-  text-align: left;
-  margin-top: 36px;
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  border-radius: 12px;
-  padding: 20px 22px;
+/* Log subtitle */
+.my-log-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 .my-log-head {
   display: flex;
