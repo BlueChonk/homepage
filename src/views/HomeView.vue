@@ -471,8 +471,8 @@ function openLink(href) {
 }
 
 .dsh-stats {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 12px;
   padding: 16px 20px;
 }
@@ -562,9 +562,9 @@ function openLink(href) {
 
 /* tools */
 .tool-group {
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: var(--surface);
+  background: transparent;
   padding: 20px 22px 22px;
   margin-bottom: 18px;
 }
@@ -583,8 +583,14 @@ function openLink(href) {
   gap: 14px;
 }
 .info-card {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  transition: background 0.15s, border-color 0.15s;
+}
+.info-card:hover {
   background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
+  border-color: var(--border) !important;
+}
   border-radius: 14px !important;
 }
 .info-card :deep(.ant-card-body) {
