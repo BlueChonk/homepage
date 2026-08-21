@@ -155,6 +155,11 @@ function openLink(href) {
       <p class="about-intro">
         你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
       </p>
+    </section>
+
+    <!-- Tools -->
+    <section class="block">
+      <h2 class="block-title">Tools</h2>
       <!-- DSH 使用统计 -->
       <div class="dsh-stats">
         <div class="dsh-stats-title">DSH 使用统计</div>
@@ -166,6 +171,10 @@ function openLink(href) {
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">5</span>
             <span class="dsh-stat-label">使用天数</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">82.2%</span>
+            <span class="dsh-stat-label">平均缓存命中率</span>
           </div>
         </div>
         <!-- 每日记录 -->
@@ -201,11 +210,6 @@ function openLink(href) {
           <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
         </div>
       </div>
-    </section>
-
-    <!-- Tools -->
-    <section class="block">
-      <h2 class="block-title">Tools</h2>
       <div
         v-for="g in toolGroups"
         :key="g.title"
