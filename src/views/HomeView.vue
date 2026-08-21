@@ -162,49 +162,57 @@ function openLink(href) {
       <h2 class="block-title">Tools</h2>
       <!-- DSH 使用统计 -->
       <div class="dsh-stats">
-        <div class="dsh-stats-title">DSH 使用统计</div>
         <div class="dsh-stats-grid">
-          <div class="dsh-stat-item">
-            <span class="dsh-stat-num">507,786,590</span>
-            <span class="dsh-stat-label">总 tokens</span>
-          </div>
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">5</span>
             <span class="dsh-stat-label">使用天数</span>
+          </div>
+          <div class="dsh-stat-item">
+            <span class="dsh-stat-num">507,786,590</span>
+            <span class="dsh-stat-label">总 tokens</span>
           </div>
           <div class="dsh-stat-item">
             <span class="dsh-stat-num">82.2%</span>
             <span class="dsh-stat-label">平均缓存命中率</span>
           </div>
         </div>
-        <!-- 每日记录 -->
+        <!-- 每日用量 -->
         <div class="dsh-daily">
-          <div class="dsh-daily-title">每日用量</div>
+          <div class="dsh-daily-header">
+            <span>日期</span>
+            <span>tokens</span>
+            <span>缓存命中率</span>
+          </div>
           <div class="dsh-daily-list" :class="{ 'dsh-daily-expanded': dailyExpanded }">
             <div class="dsh-daily-item">
-              <span class="dsh-daily-date">08-22 六</span>
+              <span class="dsh-daily-date">08-22</span>
               <span class="dsh-daily-tokens">40,244,191</span>
               <span class="dsh-daily-cache">98.8%</span>
             </div>
             <div class="dsh-daily-item">
-              <span class="dsh-daily-date">08-21 五</span>
+              <span class="dsh-daily-date">08-21</span>
               <span class="dsh-daily-tokens">400,145,325</span>
               <span class="dsh-daily-cache">99.3%</span>
             </div>
             <div class="dsh-daily-item">
-              <span class="dsh-daily-date">08-20 四</span>
+              <span class="dsh-daily-date">08-20</span>
               <span class="dsh-daily-tokens">67,313,410</span>
               <span class="dsh-daily-cache">98.1%</span>
             </div>
             <div class="dsh-daily-item">
-              <span class="dsh-daily-date">08-16 日</span>
+              <span class="dsh-daily-date">08-16</span>
               <span class="dsh-daily-tokens">25,601</span>
               <span class="dsh-daily-cache">33.1%</span>
             </div>
             <div class="dsh-daily-item">
-              <span class="dsh-daily-date">08-15 六</span>
+              <span class="dsh-daily-date">08-15</span>
               <span class="dsh-daily-tokens">58,063</span>
               <span class="dsh-daily-cache">81.9%</span>
+            </div>
+          </div>
+          <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
+        </div>
+      </div>
             </div>
           </div>
           <span class="dsh-daily-toggle" @click="dailyExpanded = !dailyExpanded">{{ dailyExpanded ? '收起 ↑' : '展开更多 ↓' }}</span>
@@ -476,7 +484,7 @@ function openLink(href) {
 
 .dsh-stats {
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   border-radius: 12px;
   padding: 16px 20px;
 }
@@ -510,12 +518,15 @@ function openLink(href) {
 .dsh-daily {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
 }
-.dsh-daily-title {
+.dsh-daily-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   margin-bottom: 8px;
 }
 .dsh-daily-list {
@@ -530,11 +541,11 @@ function openLink(href) {
   font-size: 13px;
   padding: 4px 0;
 }
-/* 超过 5 天自动折叠 */
-.dsh-daily-item:nth-child(n+6) {
+/* 超过 3 天自动折叠 */
+.dsh-daily-item:nth-child(n+4) {
   display: none;
 }
-.dsh-daily-expanded .dsh-daily-item:nth-child(n+6) {
+.dsh-daily-expanded .dsh-daily-item:nth-child(n+4) {
   display: flex;
 }
 .dsh-daily-toggle {
@@ -566,7 +577,7 @@ function openLink(href) {
 
 /* tools */
 .tool-group {
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   border-radius: 16px;
   background: transparent;
   padding: 20px 22px 22px;
