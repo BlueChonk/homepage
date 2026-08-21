@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { Menu } from 'ant-design-vue'
 import { useTheme } from '../composables/useTheme'
 
@@ -35,9 +35,9 @@ function toggleTheme() {
     <!-- 左侧品牌 -->
     <div class="nav-left">
       <a class="brand" href="#" @click.prevent="onBrand">
-        <img class="brand-avatar" src="/avatar.png" alt="Cecilia" />
+        <img class="brand-avatar" src="/avatar.png" alt="BlueChonk" />
         <span class="brand-text">
-          <span class="brand-name">Cecilia's</span>
+          <span class="brand-name">BlueChonk's</span>
           <span class="brand-suffix">Home</span>
         </span>
       </a>

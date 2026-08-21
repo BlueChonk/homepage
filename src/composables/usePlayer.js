@@ -45,12 +45,12 @@ async function resolveOnline(track, forceRefresh = false) {
   if (!song) return null
 
   const key = trackKey(track)
+  // 不缓存 audioUrl（含短效 auth token），只缓存 cover 和 lrc
   if (!forceRefresh) {
     const cached = resolveCache.get(key)
-    if (cached && cached.expiresAt > Date.now() && cached.audioUrl) {
+    if (cached && cached.expiresAt > Date.now()) {
       onlineCover.value = cached.cover || ''
       onlineLrc.value = cached.lrc || ''
-      return cached
     }
   }
 
@@ -61,7 +61,10 @@ async function resolveOnline(track, forceRefresh = false) {
     const keyword = `${song} ${singer}`.trim()
     const res = await fetch(METING_API + encodeURIComponent(keyword), { cache: 'no-store' })
     if (myId !== resolveFetchId) return null
-    if (!res.ok) throw new Error(`QQ 音乐解析失败 (${res.status})`)
+    if (!res.ok) {
+      // 任何非 200 状态（401/403/404）→ 返回 null，由调用方处理跳过
+      return null
+    }
     const data = await res.json()
     if (myId !== resolveFetchId) return null
     if (!Array.isArray(data) || data.length === 0) {
@@ -70,11 +73,12 @@ async function resolveOnline(track, forceRefresh = false) {
     // 取第一个搜索结果
     const s = data[0]
     const entry = {
-      audioUrl: s.url,
-      cover: s.pic || '',
+      audioUrl: s.url || s.audioUrl || '', // 每次重新获取，含新鲜 auth token
+      cover: s.pic || s.cover || '',
       lrc: s.lrc || '',
-      expiresAt: Date.now() + 30 * 60 * 1000, // QQ 音乐 URL 有效期较长，缓存 30 分钟
+      expiresAt: Date.now() + 30 * 60 * 1000,
     }
+    // 缓存不含 audioUrl 的 entry
     resolveCache.set(key, entry)
     // 限制缓存大小，防止内存无限增长
     if (resolveCache.size > 50) {
@@ -137,12 +141,27 @@ function bindAudio() {
 
     // code 2/3/4 = 网络/解码/源不支持 → URL 失效，强制重新解析
     resolveCache.delete(key)
-    const fresh = await resolveOnline(track, true)
-    if (fresh?.audioUrl) {
-      audio.src = fresh.audioUrl
-      activeSrc = fresh.audioUrl
+
+    // 尝试重新解析一次（forceRefresh=true），如果仍然失败则跳过
+    try {
+      const fresh = await resolveOnline(track, true)
+      if (fresh?.audioUrl) {
+        audio.src = fresh.audioUrl
+        activeSrc = fresh.audioUrl
+        resolveError.value = ''
+        audio.play().catch(() => {})
+      }
+    } catch {
+      // 任何非 200 状态（401/403/404/网络错误等）→ 跳过到下一首
       resolveError.value = ''
-      audio.play().catch(() => {})
+      if (current.value < tracks.value.length - 1) {
+        current.value++
+      } else {
+        current.value = 0
+      }
+      audio.src = ''
+      activeSrc = ''
+      if (!audio.paused) audio.play().catch(() => {})
     }
   })
 }

@@ -1,11 +1,10 @@
 ﻿<script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import PhoebePoke from '../components/PhoebePoke.vue'
 import CialloGreet from '../components/CialloGreet.vue'
 import AppFooter from '../components/AppFooter.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { useLog } from '../composables/useLog'
-import { useTheme } from '../composables/useTheme'
 
 const emit = defineEmits(['navigate'])
 function viewAllLogs() {
@@ -14,19 +13,6 @@ function viewAllLogs() {
 
 /* 日志时间线：只显示最近 2 条 */
 const { logTitle, myLogs, logLoading, visibleLogs, onLogRendered, loadLogs } = useLog(2)
-
-/* 联系方式 */
-const { resolved: themeResolved } = useTheme()
-const socials = [
-  { icon: '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
-  { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
-  { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
-].map(s => {
-  if (s.label === 'GitHub') {
-    return { ...s, icon: computed(() => themeResolved.value === 'dark' ? '/icon/github-dark.svg' : '/icon/github.svg') }
-  }
-  return s
-})
 
 /* 暴露 reload 方法供下拉刷新调用 */
 async function reload() {
@@ -85,23 +71,6 @@ onUnmounted(() => {
       <div class="badge">技术二次元宅</div>
 
       <h1 class="title">Hi，我是 BlueChonk</h1>
-
-      <!-- 联系方式 -->
-      <section class="contact-home">
-        <div class="contact-home-grid">
-          <a
-            v-for="s in socials"
-            :key="s.label"
-            :href="s.href"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="contact-home-card"
-          >
-            <span class="contact-home-icon"><img :src="s.icon?.value || s.icon" :alt="s.label" /></span>
-            <span class="contact-home-label">{{ s.label }}</span>
-          </a>
-        </div>
-      </section>
 
       <!-- 打字文字 + Ciallo + 菲比：一个整体 -->
       <div class="hero-unit">
@@ -284,51 +253,4 @@ onUnmounted(() => {
 }
 
 
-/* ===== 联系方式 ===== */
-.contact-home {
-  width: 100%;
-  max-width: 600px;
-  margin: 24px auto 0;
-  padding: 0 24px;
-}
-.contact-home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 14px;
-}
-.contact-home-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  text-decoration: none;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-.contact-home-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-}
-.contact-home-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.contact-home-icon img {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  border-radius: 5px;
-}
-.contact-home-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
 </style>

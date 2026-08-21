@@ -4,7 +4,7 @@ import AppFooter from '../components/AppFooter.vue'
 
 /* ===== 按需分页配置 ===== */
 const BGM_API = 'https://api.bgm.tv'
-const UA = 'cecilia4412/homepage (https://github.com/cecilia4412/homepage)'
+const UA = 'BlueChonk/homepage (https://github.com/BlueChonk/homepage)'
 const PAGE_SIZE = 30 // 每次请求拉取条数（API limit 上限 50），一次只渲染当前页
 
 /* 类别 tab：番剧 / 漫画 / 游戏（subject_type: 1=书籍含漫画, 2=动画, 4=游戏） */
@@ -165,7 +165,7 @@ async function loadStatusCounts() {
   statusCounts.value = res.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), { all: 0, doing: 0, wish: 0, done: 0 })
 }
 
-/* 首次进入：直接加载 */
+/* 首次进入：三个分类并行请求，按需分页加载 */
 async function init() {
   loading.value = true
   username.value = BANGUMI_USERNAME
@@ -174,7 +174,16 @@ async function init() {
     loading.value = false
     return
   }
-  await Promise.all([loadFirstPage(), loadStatusCounts()])
+  const cats = ['anime', 'manga', 'game']
+  const results = await Promise.all(cats.map((cat) => fetchCollectionPage(cat.key, 'all', 0)))
+  const allItems = results.flatMap((json, i) => json.data.map((it) => mapCollectionItem(it, cats[i].key)))
+  const allTotals = results.map((json) => json.total || 0)
+  items.value = allItems
+  total.value = allTotals.reduce((a, b) => a + b, 0)
+  categoryTotals.value = cats.reduce((acc, cat, i) => ({ ...acc, [cat.key]: allTotals[i] }), { anime: null, manga: null, game: null })
+  statusCounts.value = { all: total.value, doing: 0, wish: 0, done: 0 }
+  await loadStatusCounts()
+  loading.value = false
 }
 
 let inited = false
@@ -187,7 +196,7 @@ onMounted(() => {
 watch([activeCat, activeStatus], () => {
   if (!inited || !username.value) return
   loadFirstPage()
-  if (activeStatus.value === 'all') loadStatusCounts()
+  loadStatusCounts()
 })
 
 /* ===== 暴露 reload 方法供下拉刷新调用 ===== */

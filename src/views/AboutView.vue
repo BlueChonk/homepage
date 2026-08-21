@@ -12,9 +12,7 @@ function resolveUrl(u) {
   if (!u) return ''
   if (/^(https?:)?\/\//i.test(u)) return u
   const base = import.meta.env.BASE_URL || '/'
-  // base 为 './' 时拼接会变成 './/icon/...'，在子路由下会被解析为相对路径而 404
-  // 直接用 '/' 兜底，保证所有页面都从根路径加载资源
-  return u.startsWith('/') ? '/' + u.replace(/^\//, '') : u
+  return u.startsWith('/') ? base.replace(/\/$/, '') + u : u
 }
 
 // 工具按类别分组，每个类别以一个卡片式外框展示。
@@ -23,9 +21,9 @@ const toolGroups = [
   {
     title: 'AI 打工团',
     items: [
-      { name: 'Hermes', desc: '全能助手，能写代码能管服务器', icon: '/icon/hermes.png', href: 'https://hermes-agent.nousresearch.com/' },
-      { name: 'DSH', desc: '便宜又能打，算力刺客', icon: '/icon/deepseek.svg', href: 'https://www.deepseek.com/harness/' },
       { name: 'Codex', desc: '主力生产力，写码如喝水，摸鱼终结者', icon: '/icon/codex.ico', href: 'https://openai.com/codex' },
+      { name: 'Deepseek', desc: '便宜又能打，算力刺客', icon: '/icon/deepseek.svg', href: 'https://chat.deepseek.com/' },
+      { name: '豆包', desc: '豆包不是干粮，是搭子', icon: '/icon/doubao.png', href: 'https://www.doubao.com/chat/' },
     ],
   },
   {
@@ -52,6 +50,12 @@ const toolGroups = [
   },
 ]
 
+const socials = [
+  { icon: '/icon/github.svg', href: 'https://github.com/BlueChonk', label: 'GitHub' },
+  { icon: '/icon/steam.ico', href: 'https://steamcommunity.com/profiles/76561198726425168/', label: 'Steam' },
+  { icon: '/icon/bilibili.ico', href: 'https://space.bilibili.com/1920131239', label: '哔哩哔哩' },
+]
+
 // 图标加载失败时显示首字母徽章作为兜底
 const iconFailed = ref({})
 function onIconError(name) {
@@ -63,8 +67,8 @@ function openLink(href) {
   if (href) window.open(href, '_blank', 'noopener')
 }
 
-// 下拉刷新：重新加载页面（相当于重新进入当前 URL）
-defineExpose({ reload: () => window.location.reload() })
+// About 页为静态内容，无需重载
+defineExpose({ reload: async () => {} })
 </script>
 
 <template>
@@ -91,6 +95,24 @@ defineExpose({ reload: () => window.location.reload() })
         <p class="about-intro">
           你好，我是 BlueChonk，一个热爱二次元与技术的全栈开发者。平时喜欢折腾前端工程化、捣鼓各种开发工具，也喜欢把生活里的美食和光影记录下来。这个站点是我的小角落，用来分享作品、笔记和一些不成熟的想法。
         </p>
+      </section>
+
+      <!-- 联系方式 -->
+      <section class="contact-section">
+        <h2 class="block-title">Contact</h2>
+        <div class="contact-grid">
+          <a
+            v-for="s in socials"
+            :key="s.label"
+            :href="s.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="contact-card"
+          >
+            <span class="contact-icon"><img :src="resolveUrl(s.icon)" :alt="s.label" /></span>
+            <span class="contact-label">{{ s.label }}</span>
+          </a>
+        </div>
       </section>
 
       <!-- 2. Tools / 常用工具（按类别分卡片式外框展示） -->
