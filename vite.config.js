@@ -8,19 +8,6 @@ import { buildBlog, blogDir } from './scripts/build-blog.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-/* QQ音乐歌单解析：拉取歌单并写入 public/music.jsonl
-   - dev 启动时执行一次（configureServer）
-   - 构建时执行一次（buildStart）
-   - 歌单 ID 通过环境变量 QQ_PLAYLIST_ID 覆盖，默认 7813925785 */
-const QQ_PLAYLIST_ID = process.env.QQ_PLAYLIST_ID || '7813925785'
-async function syncQQPlaylist() {
-  try {
-    await syncPlaylist(QQ_PLAYLIST_ID)
-  } catch (e) {
-    console.error('[qq-music] 歌单同步失败:', e.message)
-  }
-}
-
 /* 通用：扫描 public/<dir> 下的文件，生成 <name>.jsonl（JSON Lines，供前端动态加载）
    - outFile: 输出文件名（默认 <dir>.jsonl），写入 public/ 根目录
    - urlBase: 文件对外访问的基础路径（如 /album）

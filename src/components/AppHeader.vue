@@ -1,7 +1,6 @@
 <script setup>
 import { Menu } from 'ant-design-vue'
 import { useTheme } from '../composables/useTheme'
-import MiniMusicPlayer from './MiniMusicPlayer.vue'
 
 const props = defineProps({
   active: { type: String, default: 'home' },
@@ -40,9 +39,6 @@ function toggleTheme() {
           <span class="brand-suffix">Home</span>
         </span>
       </a>
-      <div class="nav-music">
-        <MiniMusicPlayer />
-      </div>
     </div>
 
     <!-- 中间导航：绝对居中，不与左右两侧内容互相挤压 -->
@@ -107,19 +103,12 @@ function toggleTheme() {
     linear-gradient(90deg, transparent 0%, var(--border) 18%, var(--border) 82%, transparent 100%) no-repeat 0 2px / 100% 1px;
 }
 
-/* 左侧品牌 + 音乐播放器 */
+/* 左侧品牌 */
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 16px;
   min-width: 0;
   flex: 1 1 0;
-}
-.nav-music {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
 }
 .brand {
   display: flex;
@@ -167,14 +156,31 @@ function toggleTheme() {
   max-width: calc(100vw - 380px);
 }
 .nav-menu {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
   border-radius: 999px;
   padding: 4px 6px;
   line-height: 40px;
   height: auto;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   min-width: max-content;
+}
+/* 点击时显示外框 */
+.nav-menu:focus-visible {
+  outline: 1px solid var(--accent-border);
+  box-shadow: var(--shadow-sm);
+}
+/* 移动端也保持一致 */
+@media (max-width: 760px) {
+  .nav-menu {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  .nav-menu:focus-visible {
+    outline: 1px solid var(--accent-border);
+  }
 }
 .nav-menu :deep(.ant-menu-item) {
   height: 40px;

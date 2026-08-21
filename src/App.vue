@@ -6,7 +6,6 @@ import HomeView from './views/HomeView.vue'
 
 import LogView from './views/LogView.vue'
 import BlogView from './views/BlogView.vue'
-import { usePlayer } from './composables/usePlayer'
 import { useTheme } from './composables/useTheme'
 
 const { resolved: themeResolved } = useTheme()
@@ -78,8 +77,6 @@ async function reloadCurrent() {
 }
 
 onMounted(() => {
-  usePlayer().load()
-
   const body = document.querySelector('.app-body')
   if (body) {
     body.addEventListener('touchstart', onTouchStart, { passive: true })
