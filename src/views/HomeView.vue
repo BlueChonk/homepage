@@ -10,7 +10,7 @@ import { useTheme } from '../composables/useTheme'
 
 const emit = defineEmits(['navigate'])
 function viewAllLogs() {
-  emit('navigate', 'log')
+  emit('navigate', 'logs')
 }
 
 function resolveUrl(u) {

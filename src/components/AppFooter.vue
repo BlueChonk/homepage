@@ -1,7 +1,7 @@
-﻿<template>
+<template>
   <footer class="app-footer">
     <div class="app-footer-divider" aria-hidden="true"></div>
-    <p class="app-footer-text">© {{ new Date().getFullYear() }} BlueChonk · 用 Vue 3 &amp; Ant Design Vue 构建</p>
+    <p class="app-footer-text">© {{ new Date().getFullYear() }} BlueChonk</p>
   </footer>
 </template>
 

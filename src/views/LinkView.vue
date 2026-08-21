@@ -24,8 +24,6 @@ defineExpose({ reload: loadLinks })
           :key="i"
           class="my-log-item"
         >
-          <span class="my-log-time">{{ link.date }}</span>
-          <span class="my-log-dash" aria-hidden="true">──</span>
           <div class="my-log-body">
             <MarkdownPreview class="my-log-md" :source="link.body" variant="log" @md-rendered="onLinkRendered" />
           </div>
