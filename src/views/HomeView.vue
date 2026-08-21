@@ -175,12 +175,43 @@ function openLink(href) {
             <span class="dsh-stat-label">缓存命中率</span>
           </div>
           <div class="dsh-stat-item">
-            <span class="dsh-stat-num">544 万</span>
-            <span class="dsh-stat-label">输入+输出 tokens</span>
+            <span class="dsh-stat-num">508M</span>
+            <span class="dsh-stat-label">本月 tokens</span>
           </div>
           <div class="dsh-stat-item">
-            <span class="dsh-stat-num">4.9 亿</span>
-            <span class="dsh-stat-label">总 tokens（含缓存）</span>
+            <span class="dsh-stat-num">40.2M</span>
+            <span class="dsh-stat-label">今日 tokens</span>
+          </div>
+        </div>
+        <!-- 最近 14 天 -->
+        <div class="dsh-daily">
+          <div class="dsh-daily-title">最近 5 天</div>
+          <div class="dsh-daily-list">
+            <div class="dsh-daily-item">
+              <span class="dsh-daily-date">08-22 六</span>
+              <span class="dsh-daily-tokens">40,244,191</span>
+              <span class="dsh-daily-cache">98.8%</span>
+            </div>
+            <div class="dsh-daily-item">
+              <span class="dsh-daily-date">08-21 五</span>
+              <span class="dsh-daily-tokens">400,145,325</span>
+              <span class="dsh-daily-cache">99.3%</span>
+            </div>
+            <div class="dsh-daily-item">
+              <span class="dsh-daily-date">08-20 四</span>
+              <span class="dsh-daily-tokens">67,313,410</span>
+              <span class="dsh-daily-cache">98.1%</span>
+            </div>
+            <div class="dsh-daily-item">
+              <span class="dsh-daily-date">08-16 日</span>
+              <span class="dsh-daily-tokens">25,601</span>
+              <span class="dsh-daily-cache">33.1%</span>
+            </div>
+            <div class="dsh-daily-item">
+              <span class="dsh-daily-date">08-15 六</span>
+              <span class="dsh-daily-tokens">58,063</span>
+              <span class="dsh-daily-cache">81.9%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -484,6 +515,46 @@ function openLink(href) {
 .dsh-stat-label {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+.dsh-daily {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.dsh-daily-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.dsh-daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dsh-daily-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.dsh-daily-date {
+  color: var(--text-secondary);
+  min-width: 70px;
+}
+.dsh-daily-tokens {
+  color: var(--text);
+  font-weight: 500;
+  flex: 1;
+  text-align: right;
+}
+.dsh-daily-cache {
+  color: var(--accent);
+  font-size: 12px;
+  min-width: 45px;
+  text-align: right;
 }
 
 /* tools */
