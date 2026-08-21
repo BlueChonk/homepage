@@ -255,7 +255,7 @@ function openLink(href) {
       <h2 class="block-title">Log</h2>
       <div class="log-box">
         <div class="my-log-head">
-          <span class="my-log-subtitle">最近 2 条</span>
+          <h3 class="my-log-title">Log <span v-if="myLogs.length" class="my-log-count">{{ myLogs.length }}</span></h3>
           <button class="my-log-toggle" type="button" @click="viewAllLogs">ALL</button>
         </div>
         <ul class="my-log-list">
@@ -694,23 +694,23 @@ function openLink(href) {
   margin-bottom: 16px;
 }
 .my-log-title {
-  font-size: 19px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--accent);
   text-transform: none;
   letter-spacing: normal;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 .my-log-count {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
   border-radius: 999px;
-  padding: 2px 10px;
+  padding: 2px 8px;
 }
 .my-log-toggle {
   background: transparent;
