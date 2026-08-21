@@ -406,6 +406,33 @@ function formatDate(date) {
 
     <!-- 卡片网格（分页渲染：只渲染已加载页） -->
     <div v-else class="bgm-grid">
+      <div
+        v-for="item in items"
+        :key="item.subject_id"
+        class="bgm-card"
+        @click="openDetail(item)"
+      >
+        <div class="bgm-card-cover">
+          <img v-if="item.image && !failedImgs.has(item.subject_id)" :src="item.image" :alt="displayName(item)" loading="lazy" @error="markImgFailed(item.subject_id)" />
+          <span v-else class="bgm-cover-placeholder">♪</span>
+          <span class="bgm-card-badge" :class="`badge-${item.collection}`">
+            {{ statusLabels[item.collection] || item.collection }}
+          </span>
+          <span v-if="item.rate > 0" class="bgm-card-rate">
+            ★ {{ item.rate }}
+          </span>
+        </div>
+        <div class="bgm-card-info">
+          <h3 class="bgm-card-name" :title="displayName(item)">{{ displayName(item) }}</h3>
+          <div class="bgm-card-meta">
+            <span v-if="item.date" class="bgm-meta-date">{{ formatDate(item.date) }}</span>
+            <span v-if="item.score > 0" class="bgm-meta-score" :style="{ color: scoreColor(item.score) }">
+              {{ item.score.toFixed(1) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 加载更多（分页） -->
     <div v-if="hasMore || loadingMore" class="bgm-loadmore">
