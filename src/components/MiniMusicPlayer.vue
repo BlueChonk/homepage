@@ -175,7 +175,7 @@ onUnmounted(() => {
     <div v-if="!loading && tracks.length" class="player-main">
       <!-- 封面 + 歌曲信息 -->
       <div class="player-left">
-        <div class="mini-cover" :class="{ spinning: playing }">
+        <div class="mini-cover">
           <img v-if="coverSrc" :src="coverSrc" alt="" />
           <span v-else class="mini-note">♪</span>
         </div>
@@ -299,12 +299,7 @@ onUnmounted(() => {
   font-size: 16px;
   color: var(--text-tertiary);
 }
-.mini-cover.spinning {
-  animation: spin 8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+/* 封面不旋转 */
 .mini-info {
   display: flex;
   flex-direction: column;
