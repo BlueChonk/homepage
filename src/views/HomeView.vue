@@ -165,7 +165,7 @@ function openLink(href) {
         <div class="dsh-stats-title">DSH 使用统计</div>
         <div class="dsh-stats-grid">
           <div class="dsh-stat-item">
-            <span class="dsh-stat-num">508M</span>
+            <span class="dsh-stat-num">507,786,590</span>
             <span class="dsh-stat-label">总 tokens</span>
           </div>
           <div class="dsh-stat-item">
