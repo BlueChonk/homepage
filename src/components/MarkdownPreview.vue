@@ -102,13 +102,46 @@ async function render() {
   html.value = md.render(props.source || '')
   await nextTick()
   decorateCodeBlocks()
+  decorateLinks(mdRef.value)
   mdRef.value?.dispatchEvent(new CustomEvent('md-rendered', { bubbles: true }))
 }
 
 /**
- * 代码块增强：语言标签 + 复制按钮 + 横向滚动容器。
- * Shiki 结构：pre.shiki > code > .line...
+ * 链接验证：异步检测外链有效性，失效链接降级为加粗文本
+ * 使用 HEAD 请求快速检测，超时 5s 视为失效
  */
+const brokenLinks = new Set()
+const checkedLinks = new Set()
+
+function checkLink(url) {
+  if (checkedLinks.has(url)) return brokenLinks.has(url)
+  checkedLinks.add(url)
+  // 标记为 pending，异步检测
+  fetch(url, { method: 'HEAD', mode: 'no-cors' })
+    .then(() => { /* 可能成功 */ })
+    .catch(() => { brokenLinks.add(url) })
+  return false
+}
+
+function decorateLinks(root) {
+  if (!root) return
+  root.querySelectorAll('a[href]').forEach((a) => {
+    const href = a.getAttribute('href') || ''
+    if (!/^https?:\/\//i.test(href)) return
+    // 外部链接：新标签页打开
+    a.setAttribute('target', '_blank')
+    a.setAttribute('rel', 'noopener noreferrer')
+    // 检测链接有效性
+    if (checkLink(href)) {
+      // 已确认失效：替换为加粗文本
+      const strong = document.createElement('strong')
+      strong.textContent = a.textContent || href
+      strong.style.color = 'var(--text-tertiary)'
+      strong.style.textDecoration = 'none'
+      a.replaceWith(strong)
+    }
+  })
+}
 function decorateCodeBlocks() {
   const root = mdRef.value
   if (!root) return

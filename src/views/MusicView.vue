@@ -6,7 +6,7 @@ import { useLyrics } from '../composables/useLyrics'
 const {
   tracks, loading, current, playing, progress, currentTime, duration,
   volume, currentTrack, load, play, toggle, next, prev, seek, setVolume, onProgress,
-  onlineCover,
+  onlineCover, playMode, cyclePlayMode,
 } = usePlayer()
 
 const {
@@ -33,6 +33,16 @@ function formatTime(sec) {
   const s = Math.floor(sec % 60)
   return `${m}:${String(s).padStart(2, '0')}`
 }
+
+const playModeLabel = computed(() => {
+  const labels = {
+    'list': '列表循环',
+    'repeat-one': '单曲循环',
+    'shuffle': '随机播放',
+    'sequential': '顺序播放',
+  }
+  return labels[playMode.value] || '播放模式'
+})
 
 /* ---- 封面/歌词切换（所有屏幕尺寸通用） ---- */
 const view = ref('cover') // 'cover' | 'lyrics'
@@ -312,6 +322,12 @@ defineExpose({ reload: load })
             <div class="ctrls-right">
               <button class="btn" :class="{ active: listOpen }" @click.stop="listOpen = !listOpen" title="播放列表">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z" /></svg>
+              </button>
+              <button class="btn" @click="cyclePlayMode" :title="playModeLabel">
+                <svg v-if="playMode === 'list'" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h13v2H3zm0 5h13v2H3zm0 5h10v2H3zm14 0l4-3-4-3z" /></svg>
+                <svg v-else-if="playMode === 'repeat-one'" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h13v2H3zm0 5h13v2H3zm0 5h10v2H3zm14 0l4-3-4-3z" /><text x="10" y="15" font-size="8" fill="currentColor">1</text></svg>
+                <svg v-else-if="playMode === 'shuffle'" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h4l12 12h-4L4 6zm0 12h4l3-3-2-2zm12-12h4l-3 3-2-2z" /></svg>
+                <svg v-else viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h13v2H3zm0 5h13v2H3zm0 5h10v2H3z" /></svg>
               </button>
             </div>
           </div>

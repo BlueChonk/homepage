@@ -14,6 +14,7 @@ const progress = ref(0)
 const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(0.7)
+const playMode = ref('list') // 'list' | 'repeat-one' | 'shuffle' | 'sequential'
 let activeSrc = ''
 let activeKey = ''
 let bound = false
@@ -122,7 +123,47 @@ function bindAudio() {
   audio.addEventListener('durationchange', () => {
     duration.value = audio.duration || 0
   })
-  audio.addEventListener('ended', () => next())
+  audio.addEventListener('ended', () => {
+    // 根据播放模式决定下一步
+    switch (playMode.value) {
+      case 'repeat-one':
+        // 单曲循环：重新播放当前
+        audio.currentTime = 0
+        audio.play().catch(() => {})
+        break
+      case 'shuffle':
+        // 随机：跳到随机曲目
+        if (tracks.value.length > 1) {
+          let next = Math.floor(Math.random() * tracks.value.length)
+          while (next === current.value && tracks.value.length > 1) {
+            next = Math.floor(Math.random() * tracks.value.length)
+          }
+          current.value = next
+          play()
+        } else if (tracks.value.length === 1) {
+          current.value = 0
+          play()
+        }
+        break
+      case 'sequential':
+        // 顺序播放：播放到最后一首后停止
+        if (current.value < tracks.value.length - 1) {
+          current.value++
+          play()
+        } else {
+          playing.value = false
+          progress.value = 0
+          currentTime.value = 0
+        }
+        break
+      case 'list':
+      default:
+        // 列表循环：循环播放
+        current.value = (current.value + 1) % tracks.value.length
+        play()
+        break
+    }
+  })
   audio.addEventListener('play', () => {
     playing.value = true
     duration.value = audio.duration || duration.value
@@ -150,19 +191,13 @@ function bindAudio() {
         activeSrc = fresh.audioUrl
         resolveError.value = ''
         audio.play().catch(() => {})
+        return
       }
-    } catch {
-      // 任何非 200 状态（401/403/404/网络错误等）→ 跳过到下一首
-      resolveError.value = ''
-      if (current.value < tracks.value.length - 1) {
-        current.value++
-      } else {
-        current.value = 0
-      }
-      audio.src = ''
-      activeSrc = ''
-      if (!audio.paused) audio.play().catch(() => {})
-    }
+    } catch { /* fall through */ }
+
+    // 重新解析失败或返回 null（含 401/404）→ 直接跳过到下一首
+    resolveError.value = ''
+    skipToNext()
   })
 }
 
@@ -240,6 +275,9 @@ async function play(i) {
     audio.src = s
     activeSrc = s
     audio.play().catch(() => {})
+  } else {
+    // resolveOnline 返回 null（401/404/无匹配音频）→ 自动跳过到下一首
+    skipToNext()
   }
 }
 
@@ -254,16 +292,79 @@ function toggle() {
   else audio.pause()
 }
 
+function skipToNext() {
+  if (!tracks.value.length) return
+  switch (playMode.value) {
+    case 'shuffle':
+      if (tracks.value.length > 1) {
+        let next = Math.floor(Math.random() * tracks.value.length)
+        while (next === current.value && tracks.value.length > 1) {
+          next = Math.floor(Math.random() * tracks.value.length)
+        }
+        current.value = next
+      }
+      break
+    case 'sequential':
+      if (current.value < tracks.value.length - 1) current.value++
+      else return // 顺序播放到最后停止，不循环
+      break
+    case 'list':
+    case 'repeat-one':
+    default:
+      current.value = (current.value + 1) % tracks.value.length
+      break
+  }
+  play()
+}
+
 function next() {
   if (!tracks.value.length) return
-  current.value = (current.value + 1) % tracks.value.length
+  switch (playMode.value) {
+    case 'shuffle':
+      if (tracks.value.length > 1) {
+        let n = Math.floor(Math.random() * tracks.value.length)
+        while (n === current.value && tracks.value.length > 1) {
+          n = Math.floor(Math.random() * tracks.value.length)
+        }
+        current.value = n
+      }
+      break
+    case 'sequential':
+    case 'list':
+    default:
+      current.value = (current.value + 1) % tracks.value.length
+      break
+  }
   play()
 }
 
 function prev() {
   if (!tracks.value.length) return
-  current.value = (current.value - 1 + tracks.value.length) % tracks.value.length
+  switch (playMode.value) {
+    case 'shuffle':
+      if (tracks.value.length > 1) {
+        let p = Math.floor(Math.random() * tracks.value.length)
+        while (p === current.value && tracks.value.length > 1) {
+          p = Math.floor(Math.random() * tracks.value.length)
+        }
+        current.value = p
+      }
+      break
+    default:
+      current.value = (current.value - 1 + tracks.value.length) % tracks.value.length
+      break
+  }
   play()
+}
+
+function setPlayMode(mode) {
+  playMode.value = mode
+}
+
+function cyclePlayMode() {
+  const modes = ['list', 'repeat-one', 'shuffle', 'sequential']
+  const idx = modes.indexOf(playMode.value)
+  playMode.value = modes[(idx + 1) % modes.length]
 }
 
 function seek(e) {
@@ -350,6 +451,7 @@ export function usePlayer() {
     currentTime,
     duration,
     volume,
+    playMode,
     currentTrack,
     total,
     resolving,
@@ -364,6 +466,8 @@ export function usePlayer() {
     seek,
     seekTo,
     setVolume,
+    setPlayMode,
+    cyclePlayMode,
     onProgress,
   }
 }

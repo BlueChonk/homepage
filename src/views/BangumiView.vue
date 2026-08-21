@@ -42,6 +42,9 @@ const loading = ref(true)      // 首次/切换加载
 const loadingMore = ref(false) // 加载更多分页
 const configMissing = ref(false)
 const error = ref('')
+const searchQuery = ref('')    // 搜索关键词
+const searchResults = ref([])  // 搜索结果
+const searching = ref(false)   // 搜索中
 
 /* 类别 tab 与状态筛选的计数（按需、分页后从服务端 total 读取） */
 const categoryTotals = reactive({ anime: null, manga: null, game: null })
@@ -163,6 +166,59 @@ async function loadStatusCounts() {
   })
   const res = await Promise.all(jobs)
   statusCounts.value = res.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), { all: 0, doing: 0, wish: 0, done: 0 })
+}
+
+/* bangumi-api 搜索：使用 /v0/search/subjects 实时搜索 */
+async function searchBangumi(keyword) {
+  if (!keyword || !keyword.trim()) {
+    searchResults.value = []
+    return
+  }
+  searching.value = true
+  try {
+    const cat = catOf(activeCat.value)
+    const body = { keyword: keyword.trim(), type: cat.subjectType }
+    let lastErr
+    for (const build of BGM_ROUTES) {
+      try {
+        const direct = `${BGM_API}/v0/search/subjects`
+        const res = await withTimeout(fetch(build(direct), {
+          method: 'POST',
+          headers: { ...apiHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }))
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        searchResults.value = (json.data || []).map((item) => ({
+          subject_id: item.id,
+          type: activeCat.value,
+          name: item.name || '',
+          name_cn: item.name_cn || '',
+          summary: item.summary || '',
+          date: item.date || '',
+          eps: item.eps || 0,
+          score: item.score || 0,
+          rank: item.rank || 0,
+          image: item.images?.common || item.images?.large || item.images?.medium || '',
+          collection: 'search',
+        }))
+        return
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    throw lastErr || new Error('搜索失败')
+  } catch (e) {
+    searchResults.value = []
+    error.value = `搜索失败：${e.message}`
+  } finally {
+    searching.value = false
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = ''
+  searchResults.value = []
 }
 
 /* 首次进入：三个分类并行请求，按需分页加载 */
@@ -295,30 +351,38 @@ function formatDate(date) {
     <div v-else-if="loading" class="bgm-state">加载中…</div>
 
     <!-- 请求出错 -->
-    <div v-else-if="error" class="bgm-state empty">
+    <div v-else-if="error && !searchResults.length" class="bgm-state empty">
       <p>加载失败</p>
       <p class="hint">{{ error }}</p>
     </div>
 
-    <!-- 空状态 -->
-    <div v-else-if="items.length === 0" class="bgm-state empty">
-      <p>暂无数据</p>
+    <!-- 搜索栏 -->
+    <div class="bgm-search">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="搜索番剧 / 漫画 / 游戏..."
+        class="bgm-search-input"
+        @keyup.enter="searchBangumi(searchQuery)"
+      />
+      <button class="bgm-search-btn" @click="searchBangumi(searchQuery)" :disabled="searching">
+        {{ searching ? '搜索中...' : '搜索' }}
+      </button>
+      <button v-if="searchResults.length" class="bgm-search-clear" @click="clearSearch">清除</button>
     </div>
 
-    <!-- 卡片网格（分页渲染：只渲染已加载页） -->
-    <div v-else class="bgm-grid">
+    <!-- 搜索结果 -->
+    <div v-if="searchResults.length" class="bgm-grid">
       <div
-        v-for="item in items"
-        :key="item.subject_id"
+        v-for="item in searchResults"
+        :key="'search-' + item.subject_id"
         class="bgm-card"
         @click="openDetail(item)"
       >
         <div class="bgm-card-cover">
           <img v-if="item.image && !failedImgs.has(item.subject_id)" :src="item.image" :alt="displayName(item)" loading="lazy" @error="markImgFailed(item.subject_id)" />
           <span v-else class="bgm-cover-placeholder">♪</span>
-          <span class="bgm-card-badge" :class="`badge-${item.collection}`">
-            {{ statusLabels[item.collection] || item.collection }}
-          </span>
+          <span class="bgm-card-badge">搜索</span>
           <span v-if="item.rate > 0" class="bgm-card-rate">
             ★ {{ item.rate }}
           </span>
@@ -334,6 +398,14 @@ function formatDate(date) {
         </div>
       </div>
     </div>
+
+    <!-- 空状态 -->
+    <div v-else-if="items.length === 0" class="bgm-state empty">
+      <p>暂无数据</p>
+    </div>
+
+    <!-- 卡片网格（分页渲染：只渲染已加载页） -->
+    <div v-else class="bgm-grid">
 
     <!-- 加载更多（分页） -->
     <div v-if="hasMore || loadingMore" class="bgm-loadmore">
@@ -407,6 +479,59 @@ function formatDate(date) {
   font-size: 14px;
   color: var(--text-tertiary);
   margin: 0;
+}
+
+/* ===== 搜索栏 ===== */
+.bgm-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.bgm-search-input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.bgm-search-input:focus {
+  border-color: var(--accent-border);
+}
+.bgm-search-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bgm-search-btn:hover {
+  background: var(--accent-border);
+}
+.bgm-search-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.bgm-search-clear {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bgm-search-clear:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 /* ===== 类别 tab ===== */
