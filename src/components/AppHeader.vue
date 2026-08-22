@@ -31,7 +31,7 @@ function toggleTheme() {
 
 <template>
   <header class="topnav">
-    <!-- 左侧品牌 + 音乐播放器 -->
+    <!-- 左侧品牌 -->
     <div class="nav-left">
       <a class="brand" href="#" @click.prevent="onBrand">
         <img class="brand-avatar" src="/avatar.png" alt="BlueChonk" />
