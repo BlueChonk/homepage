@@ -1,0 +1,46 @@
+# 日志
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 依赖与构建产物
+node_modules
+node_modules_trash
+dist
+dist-ssr
+*.local
+package-lock.json
+
+# 本地配置与缓存
+.edgeone/
+.music_cache/
+.env
+
+# 脚本自动生成的清单文件（vite 启动/构建时自动生成，勿提交）
+public/album.jsonl
+public/note.jsonl
+public/log.jsonl
+public/blog.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 用户上传文件（保留目录结构）
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# 编辑器与系统文件
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
